@@ -18,7 +18,7 @@ def db_template(tmp_path_factory):
 
 @pytest.fixture
 def client(tmp_path, db_template):
-    settings = Settings(data_dir=tmp_path / "data")
+    settings = Settings(data_dir=tmp_path / "data", allowed_hosts=["testserver", "localhost"])
     settings.data_dir.mkdir()
     shutil.copy(db_template, settings.db_path)
     app = create_app(settings)
