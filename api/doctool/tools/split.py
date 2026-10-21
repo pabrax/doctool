@@ -9,10 +9,25 @@ from doctool.tools.pages import parse_ranges, stem
 
 class SplitParams(BaseModel):
     mode: Literal["ranges", "every", "extract", "remove", "size"] = "ranges"
-    ranges: str = Field("", description="e.g. 1-3,5,8-10 (ranges, extract, remove)")
-    every: int = Field(1, ge=1, description="pages per file (every)")
-    max_kb: int = Field(1024, ge=1, description="max size per file in KB (size)")
-    merge_after: bool = Field(False, description="ranges: join all ranges into one file")
+    ranges: str = Field(
+        "",
+        description="e.g. 1-3,5,8-10",
+        json_schema_extra={"show_when": {"mode": ["ranges", "extract", "remove"]}},
+    )
+    every: int = Field(
+        1, ge=1, description="pages per file", json_schema_extra={"show_when": {"mode": ["every"]}}
+    )
+    max_kb: int = Field(
+        1024,
+        ge=1,
+        description="max size per file in KB",
+        json_schema_extra={"show_when": {"mode": ["size"]}},
+    )
+    merge_after: bool = Field(
+        False,
+        description="join all ranges into one file",
+        json_schema_extra={"show_when": {"mode": ["ranges"]}},
+    )
 
     @model_validator(mode="after")
     def _needs_ranges(self):

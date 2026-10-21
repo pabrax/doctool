@@ -26,9 +26,11 @@ assert set(Position.__args__) == set(POSITIONS_9)  # type: ignore[attr-defined]
 
 class WatermarkParams(BaseModel):
     mode: Literal["text", "image"] = "text"
-    text: str = ""
-    font: Literal["Helvetica", "Helvetica-Bold", "Times-Roman", "Courier"] = "Helvetica-Bold"
-    font_size: int = Field(48, ge=6, le=300)
+    text: str = Field("", json_schema_extra={"show_when": {"mode": ["text"]}})
+    font: Literal["Helvetica", "Helvetica-Bold", "Times-Roman", "Courier"] = Field(
+        "Helvetica-Bold", json_schema_extra={"show_when": {"mode": ["text"]}}
+    )
+    font_size: int = Field(48, ge=6, le=300, json_schema_extra={"show_when": {"mode": ["text"]}})
     color: str = Field("#808080", pattern=r"^#[0-9a-fA-F]{6}$")
     opacity: float = Field(0.3, gt=0, le=1)
     rotation: int = Field(45, ge=-180, le=180)
@@ -36,7 +38,13 @@ class WatermarkParams(BaseModel):
     mosaic: bool = Field(False, description="repeat across the whole page")
     layer: Literal["above", "below"] = "above"
     pages: str = Field("all", description="'all' or ranges such as 1-3,5")
-    scale: float = Field(0.4, gt=0, le=1, description="image width as a fraction of the page")
+    scale: float = Field(
+        0.4,
+        gt=0,
+        le=1,
+        description="image width as a fraction of the page",
+        json_schema_extra={"show_when": {"mode": ["image"]}},
+    )
 
     @model_validator(mode="after")
     def _check_text(self):
