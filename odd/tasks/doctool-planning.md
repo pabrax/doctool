@@ -1,6 +1,6 @@
 ---
 feature: doctool-planning
-status: active
+status: done
 lane: L1+
 tdd: off
 branch: feat/doctool-planning
@@ -27,7 +27,7 @@ Owner approval required before the build phase starts. Network research is read-
 - [x] T2 Research open-source alternatives and engines (S1,S2) — accept: landscape section written
 - [x] T3 Write SPEC.md (S2,S3,S5) — accept: all sections present
 - [x] T4 Write SUMMARY.md (S4) — accept: prioritized list present
-- [ ] T5 Owner review and decisions D1-D3 (S2) — accept: owner answers recorded in SPEC.md section 12
+- [x] T5 Owner review and decisions D1-D3 (S2) — accept: owner answers recorded in SPEC.md section 12
 ## Verification evidence
 - Files written; sources are from WebSearch/WebFetch in this session. Browser-level inspection of ilovepdf.com network traffic was NOT done (WebFetch returns text only).
 ## Progress
