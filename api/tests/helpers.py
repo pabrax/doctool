@@ -3,20 +3,23 @@ import zipfile
 
 
 def run_tool(client, tool, params, files, expect=200, passwords=None):
+    """Drive the real task API. `files` = [(name, bytes[, mime])]; `passwords` aligned to files."""
     t = client.post("/api/v1/tasks", json={"tool": tool, "params": params})
     assert t.status_code == 201, t.text
     tid = t.json()["id"]
-    for name, data in files:
-        r = client.post(
-            f"/api/v1/tasks/{tid}/files", files={"file": (name, data, "application/pdf")}
-        )
+    file_ids = []
+    for item in files:
+        name, data = item[0], item[1]
+        mime = item[2] if len(item) > 2 else "application/pdf"
+        r = client.post(f"/api/v1/tasks/{tid}/files", files={"file": (name, data, mime)})
         assert r.status_code == 201, r.text
-    r = client.post(f"/api/v1/tasks/{tid}/process", json={"passwords": passwords or {}})
+        file_ids.append(r.json()["files"][-1]["id"])
+    pw = {fid: p for fid, p in zip(file_ids, passwords or [], strict=False) if p}
+    r = client.post(f"/api/v1/tasks/{tid}/process", json={"passwords": pw})
     assert r.status_code == expect, r.text
     if expect != 200:
         return r
-    d = client.get(f"/api/v1/tasks/{tid}/download")
-    return d
+    return client.get(f"/api/v1/tasks/{tid}/download")
 
 
 def outputs(resp):

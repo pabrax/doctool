@@ -5,7 +5,7 @@ from doctool import library
 from doctool.config import Settings
 from doctool.db import Document, Version
 from doctool.deps import get_blobs, get_db, get_settings
-from doctool.pdfio import InvalidPdf
+from doctool.pdfio import InvalidPdf, read_info
 from doctool.schemas import DocumentOut, DocumentPatch, VersionOut
 from doctool.storage import BlobStore
 
@@ -98,3 +98,19 @@ def download_version(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{version.filename}"'},
     )
+
+
+@router.get("/versions/{version_id}/metadata")
+def version_metadata(
+    version_id: str, db: Session = Depends(get_db), blobs: BlobStore = Depends(get_blobs)
+):
+    version = db.get(Version, version_id)
+    if not version or not blobs.exists(version.sha256):
+        raise HTTPException(404, "version not found")
+    if version.encrypted:
+        raise HTTPException(409, "document is encrypted; unlock it first")
+    try:
+        info = read_info(blobs.read(version.sha256))
+    except InvalidPdf as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"pages": version.pages, "size": version.size, "encrypted": False, "info": info}

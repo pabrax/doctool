@@ -25,3 +25,14 @@ def inspect_pdf(data: bytes) -> PdfInfo:
         return PdfInfo(pages=None, encrypted=True)
     except (pikepdf.PdfError, ValueError) as exc:
         raise InvalidPdf(f"damaged PDF: {exc}") from exc
+
+
+def read_info(data: bytes) -> dict[str, str]:
+    """Document-info dictionary as plain strings. Encrypted files raise InvalidPdf."""
+    try:
+        with pikepdf.open(io.BytesIO(data)) as pdf:
+            return {str(k).lstrip("/"): str(v) for k, v in pdf.docinfo.items()}
+    except pikepdf.PasswordError as exc:
+        raise InvalidPdf("encrypted") from exc
+    except (pikepdf.PdfError, ValueError) as exc:
+        raise InvalidPdf(f"damaged PDF: {exc}") from exc
