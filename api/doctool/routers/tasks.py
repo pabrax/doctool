@@ -23,6 +23,7 @@ from doctool import library
 from doctool.config import Settings
 from doctool.db import Document, Task, TaskFile, Version
 from doctool.deps import get_blobs, get_db, get_settings
+from doctool.http import content_disposition
 from doctool.pdfio import InvalidPdf
 from doctool.routers.library import read_upload
 from doctool.schemas import ProcessBody, TaskCreate, TaskOut, ToolOut
@@ -255,7 +256,7 @@ def download_task(
         return Response(
             blobs.read(f.sha256),
             media_type=media,
-            headers={"Content-Disposition": f'attachment; filename="{f.filename}"'},
+            headers={"Content-Disposition": content_disposition(f.filename)},
         )
     buf = io.BytesIO()
     used: set[str] = set()
@@ -270,7 +271,7 @@ def download_task(
     return Response(
         buf.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="output.zip"'},
+        headers={"Content-Disposition": content_disposition("output.zip")},
     )
 
 

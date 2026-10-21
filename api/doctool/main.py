@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from doctool import __version__
 from doctool.config import Settings
 from doctool.db import make_session_factory
+from doctool.library import purge_expired_tasks
 from doctool.routers import library, tasks
 from doctool.storage import BlobStore
 
@@ -20,6 +21,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.blobs = BlobStore(settings.blob_dir)
         app.state.session_factory = make_session_factory(settings.db_path)
         app.state.secrets = {}
+        with app.state.session_factory() as db:
+            purge_expired_tasks(db, app.state.blobs, settings.task_ttl_hours)
         yield
 
     app = FastAPI(title="doctool", version=__version__, lifespan=lifespan)

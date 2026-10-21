@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, create_engine
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, TypeDecorator, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 
@@ -14,6 +14,23 @@ def now() -> datetime:
     return datetime.now(UTC)
 
 
+class UTCDateTime(TypeDecorator):
+    """SQLite drops tzinfo; store naive UTC and always hand back aware UTC."""
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is not None:
+            value = value.astimezone(UTC).replace(tzinfo=None)
+        return value
+
+    def process_result_value(self, value, dialect):
+        return value.replace(tzinfo=UTC) if value is not None else None
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -23,7 +40,7 @@ class Document(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     name: Mapped[str] = mapped_column(String(255))
     tags: Mapped[list] = mapped_column(JSON, default=list)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     versions: Mapped[list["Version"]] = relationship(
         back_populates="document", cascade="all, delete-orphan", order_by="Version.seq"
     )
@@ -42,7 +59,7 @@ class Version(Base):
     encrypted: Mapped[bool] = mapped_column(default=False)
     tool: Mapped[str | None] = mapped_column(String(64), nullable=True)
     params: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     document: Mapped[Document] = relationship(back_populates="versions")
 
 
@@ -53,8 +70,8 @@ class Task(Base):
     params: Mapped[dict] = mapped_column(JSON, default=dict)
     state: Mapped[str] = mapped_column(String(32), default="waiting")
     error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     files: Mapped[list["TaskFile"]] = relationship(
         back_populates="task", cascade="all, delete-orphan", order_by="TaskFile.position"
     )

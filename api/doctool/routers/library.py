@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+import io
+
+import pikepdf
+import pypdfium2 as pdfium
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from doctool import library
 from doctool.config import Settings
 from doctool.db import Document, Version
 from doctool.deps import get_blobs, get_db, get_settings
+from doctool.http import content_disposition
 from doctool.pdfio import InvalidPdf, read_info
 from doctool.schemas import DocumentOut, DocumentPatch, VersionOut
 from doctool.storage import BlobStore
@@ -86,27 +91,83 @@ def list_versions(doc_id: str, db: Session = Depends(get_db)):
     return get_doc_or_404(db, doc_id).versions
 
 
-@router.get("/versions/{version_id}/download")
-def download_version(
-    version_id: str, db: Session = Depends(get_db), blobs: BlobStore = Depends(get_blobs)
-):
+def get_version_or_404(db: Session, blobs: BlobStore, version_id: str) -> Version:
     version = db.get(Version, version_id)
     if not version or not blobs.exists(version.sha256):
         raise HTTPException(404, "version not found")
+    return version
+
+
+@router.get("/versions/{version_id}/download")
+def download_version(
+    version_id: str,
+    inline: bool = Query(False, description="show in the browser instead of downloading"),
+    db: Session = Depends(get_db),
+    blobs: BlobStore = Depends(get_blobs),
+):
+    version = get_version_or_404(db, blobs, version_id)
     return Response(
         blobs.read(version.sha256),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{version.filename}"'},
+        headers={"Content-Disposition": content_disposition(version.filename, inline)},
     )
+
+
+@router.get("/versions/{version_id}/thumbnail/{page}")
+def version_thumbnail(
+    version_id: str,
+    page: int,
+    width: int = Query(240, ge=32, le=1600),
+    db: Session = Depends(get_db),
+    blobs: BlobStore = Depends(get_blobs),
+):
+    version = get_version_or_404(db, blobs, version_id)
+    if version.encrypted:
+        raise HTTPException(409, "document is encrypted; unlock it first")
+    if not version.pages or not 1 <= page <= version.pages:
+        raise HTTPException(404, "page not found")
+    pdf = pdfium.PdfDocument(blobs.read(version.sha256))
+    try:
+        pdf_page = pdf[page - 1]
+        page_width, _ = pdf_page.get_size()
+        image = pdf_page.render(scale=width / page_width).to_pil().convert("RGB")
+    finally:
+        pdf.close()
+    if image.width != width:  # pdfium rounds; make the requested width exact
+        image = image.resize((width, max(1, round(image.height * width / image.width))))
+    buf = io.BytesIO()
+    image.save(buf, "PNG")
+    return Response(
+        buf.getvalue(),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},  # blobs are immutable
+    )
+
+
+@router.get("/versions/{version_id}/pages")
+def version_pages(
+    version_id: str, db: Session = Depends(get_db), blobs: BlobStore = Depends(get_blobs)
+):
+    version = get_version_or_404(db, blobs, version_id)
+    if version.encrypted:
+        raise HTTPException(409, "document is encrypted; unlock it first")
+    with pikepdf.open(io.BytesIO(blobs.read(version.sha256))) as pdf:
+        out = []
+        for i, page in enumerate(pdf.pages, 1):
+            box = page.mediabox
+            w, h = float(box[2]) - float(box[0]), float(box[3]) - float(box[1])
+            rotate = int(page.obj.get("/Rotate", 0)) % 360
+            if rotate in (90, 270):
+                w, h = h, w
+            out.append({"index": i, "width": w, "height": h, "rotate": rotate})
+    return out
 
 
 @router.get("/versions/{version_id}/metadata")
 def version_metadata(
     version_id: str, db: Session = Depends(get_db), blobs: BlobStore = Depends(get_blobs)
 ):
-    version = db.get(Version, version_id)
-    if not version or not blobs.exists(version.sha256):
-        raise HTTPException(404, "version not found")
+    version = get_version_or_404(db, blobs, version_id)
     if version.encrypted:
         raise HTTPException(409, "document is encrypted; unlock it first")
     try:

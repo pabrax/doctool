@@ -1,13 +1,14 @@
 import re
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from doctool.db import Document, TaskFile, Version
+from doctool.db import Document, Task, TaskFile, Version
 from doctool.pdfio import inspect_pdf
 from doctool.storage import BlobStore
 
-_BAD = re.compile(r'[\/:*?"<>|\x00-\x1f]')
+_BAD = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
 
 def safe_filename(name: str, default: str = "document.pdf") -> str:
@@ -77,3 +78,16 @@ def delete_document(db: Session, blobs: BlobStore, doc: Document) -> None:
     db.commit()
     for sha in shas:
         gc_blob(db, blobs, sha)
+
+
+def purge_expired_tasks(db: Session, blobs: BlobStore, ttl_hours: int) -> int:
+    """Delete tasks older than the TTL and blobs nothing else references; library is untouched."""
+    cutoff = datetime.now(UTC) - timedelta(hours=ttl_hours)
+    old = list(db.scalars(select(Task).where(Task.created_at < cutoff)))
+    shas = {f.sha256 for t in old for f in t.files}
+    for task in old:
+        db.delete(task)
+    db.commit()
+    for sha in shas:
+        gc_blob(db, blobs, sha)
+    return len(old)
