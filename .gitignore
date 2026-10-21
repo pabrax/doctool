@@ -9,3 +9,7 @@ node_modules/
 web/dist/
 *.egg-info/
 handoff.md
+web/e2e/.data/
+web/e2e/.fixtures/
+web/test-results/
+web/playwright-report/

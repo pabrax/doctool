@@ -10,7 +10,6 @@ class Settings(BaseModel):
     data_dir: Path = Field(default=Path("data"))
     web_dir: Path | None = Field(default=None, description="built frontend (web/dist) to serve")
     max_upload_bytes: int = 200 * 1024 * 1024
-    max_pages: int = 5000
     task_ttl_hours: int = 24
     host: str = "127.0.0.1"
     port: int = 8000

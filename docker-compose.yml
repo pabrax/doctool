@@ -1,0 +1,22 @@
+# Untested here (no Docker on the dev machine). The port is published on the loopback interface
+# only: doctool has no login, so it must not be reachable from the network.
+services:
+  doctool:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - doctool-data:/data
+    environment:
+      # The container binds 0.0.0.0 internally; the published port above is what limits exposure.
+      DOCTOOL_ALLOWED_HOSTS: "127.0.0.1,localhost"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  doctool-data:

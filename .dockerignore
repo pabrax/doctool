@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+web/dist
+.venv
+data
+**/__pycache__
+.git
+web/e2e/.data
+web/e2e/.fixtures
+web/test-results
