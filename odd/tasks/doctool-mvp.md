@@ -1,6 +1,6 @@
 ---
 feature: doctool-mvp
-status: active
+status: done
 lane: L1+
 tdd: on
 branch: feat/doctool-mvp
@@ -27,14 +27,19 @@ Localhost only. Pip installs only inside project .venv; npm inside web/. No syst
 - [x] T7 Preview: thumbnails, ZIP multi-output, original download (S1) — accept: endpoint tests
 - [x] T8 Frontend scaffold: Vite+React+TS+Tailwind+shadcn, schema-driven tool pages, library view (S1) — accept: vitest + build pass
 - [x] T9 Organizer UI, command palette, i18n es/en, dark mode, a11y (S1) — accept: axe check + vitest
-- [ ] T10 E2E (Playwright), Dockerfile/compose, README, CI workflow (S1) — accept: e2e green locally; docker untested noted
+- [x] T10 E2E (Playwright), Dockerfile/compose, README, CI workflow (S1) — accept: e2e green locally; docker untested noted
 ## Verification evidence
 - T1-T7 (backend): `cd api && ../.venv/Scripts/python -m pytest -q` -> 124 passed; `ruff check .` -> All checks passed (2026-10-21, HEAD 495b4ba). Each tool written test-first (red observed before green).
 - Real bugs caught by tests: overlay double rotation (pixel test), pikepdf API names, Content-Disposition for non-Latin names.
 - T8-T9 (web): `cd web && npx vitest run` -> 44 passed (SchemaForm, pages, organizer, palette, i18n parity, axe on 5 views); `npx tsc -b --noEmit` clean; `npx vite build` OK.
 - Backend after T9: `pytest -q` -> 133 passed; `ruff check .` clean (HEAD fa522e8).
+- T10: `npx playwright test` (real Edge, real server on :8124) -> 6 passed: merge+download+library history, tool on library doc creates v2 + thumbnails render, organizer delete+apply, protect->unlock wrong/right password, language+theme persistence, Ctrl+K palette.
+- Final: api `pytest -q` 153 passed, `ruff check .` clean; web vitest 44 passed, tsc clean, vite build OK (HEAD a8833dd).
+- Real server smoke: `python -m doctool` -> / and SPA routes 200, CSP present, Host: evil.example -> 400.
+- NOT verified: Dockerfile/docker-compose (no Docker here), .github/workflows/ci.yml (no remote), pip-audit/npm audit not run.
 - Deviation: no Ghostscript/Docker/uv here; compress is pikepdf+Pillow only; Docker files will be untested.
 ## Progress
+T1-T10 done and committed on feat/doctool-mvp (not merged, not pushed).
 ## Next step
 T10 (serve web from FastAPI + CSP, Playwright e2e via installed Edge, Docker, README, CI)
 ## Log
