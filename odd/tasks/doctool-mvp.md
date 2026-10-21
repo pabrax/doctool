@@ -25,15 +25,17 @@ Localhost only. Pip installs only inside project .venv; npm inside web/. No syst
 - [x] T5 Tools protect, unlock, metadata, watermark, page numbers (S1) — accept: round trip + text extractable tests
 - [x] T6 Tools compress, images->pdf, pdf->images (S1) — accept: output valid, compress <= input on fixture
 - [x] T7 Preview: thumbnails, ZIP multi-output, original download (S1) — accept: endpoint tests
-- [ ] T8 Frontend scaffold: Vite+React+TS+Tailwind+shadcn, schema-driven tool pages, library view (S1) — accept: vitest + build pass
-- [ ] T9 Organizer UI, command palette, i18n es/en, dark mode, a11y (S1) — accept: axe check + vitest
+- [x] T8 Frontend scaffold: Vite+React+TS+Tailwind+shadcn, schema-driven tool pages, library view (S1) — accept: vitest + build pass
+- [x] T9 Organizer UI, command palette, i18n es/en, dark mode, a11y (S1) — accept: axe check + vitest
 - [ ] T10 E2E (Playwright), Dockerfile/compose, README, CI workflow (S1) — accept: e2e green locally; docker untested noted
 ## Verification evidence
 - T1-T7 (backend): `cd api && ../.venv/Scripts/python -m pytest -q` -> 124 passed; `ruff check .` -> All checks passed (2026-10-21, HEAD 495b4ba). Each tool written test-first (red observed before green).
 - Real bugs caught by tests: overlay double rotation (pixel test), pikepdf API names, Content-Disposition for non-Latin names.
+- T8-T9 (web): `cd web && npx vitest run` -> 44 passed (SchemaForm, pages, organizer, palette, i18n parity, axe on 5 views); `npx tsc -b --noEmit` clean; `npx vite build` OK.
+- Backend after T9: `pytest -q` -> 133 passed; `ruff check .` clean (HEAD fa522e8).
 - Deviation: no Ghostscript/Docker/uv here; compress is pikepdf+Pillow only; Docker files will be untested.
 ## Progress
 ## Next step
-T8 (frontend scaffold)
+T10 (serve web from FastAPI + CSP, Playwright e2e via installed Edge, Docker, README, CI)
 ## Log
 - L1 "podemos proceder en la creacion de este primer MVP presentado, me parece que esta OK, luego hacemos un primer sprint donde te digo que encuentro bien y que encuentro mal, pero tu plan propuesto es correcto"
