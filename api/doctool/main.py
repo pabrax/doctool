@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from doctool import __version__
 from doctool.config import Settings
 from doctool.db import make_session_factory
-from doctool.routers import library
+from doctool.routers import library, tasks
 from doctool.storage import BlobStore
 
 
@@ -19,6 +19,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = settings
         app.state.blobs = BlobStore(settings.blob_dir)
         app.state.session_factory = make_session_factory(settings.db_path)
+        app.state.secrets = {}
         yield
 
     app = FastAPI(title="doctool", version=__version__, lifespan=lifespan)
@@ -34,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__}
 
     app.include_router(library.router)
+    app.include_router(tasks.router)
     return app
 
 

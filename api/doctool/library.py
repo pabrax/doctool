@@ -3,7 +3,7 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from doctool.db import Document, Version
+from doctool.db import Document, TaskFile, Version
 from doctool.pdfio import inspect_pdf
 from doctool.storage import BlobStore
 
@@ -60,11 +60,20 @@ def list_documents(db: Session) -> list[Document]:
     return list(db.scalars(select(Document).order_by(Document.created_at.desc())))
 
 
+def gc_blob(db: Session, blobs: BlobStore, sha: str | None) -> None:
+    """Delete a blob only when no version and no task file references it."""
+    if not sha:
+        return
+    used = db.scalar(select(Version.id).where(Version.sha256 == sha).limit(1)) or db.scalar(
+        select(TaskFile.id).where(TaskFile.sha256 == sha).limit(1)
+    )
+    if not used:
+        blobs.delete(sha)
+
+
 def delete_document(db: Session, blobs: BlobStore, doc: Document) -> None:
     shas = {v.sha256 for v in doc.versions}
     db.delete(doc)
     db.commit()
     for sha in shas:
-        still_used = db.scalar(select(Version.id).where(Version.sha256 == sha).limit(1))
-        if not still_used:
-            blobs.delete(sha)
+        gc_blob(db, blobs, sha)
