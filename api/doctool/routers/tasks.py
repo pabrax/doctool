@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import mimetypes
 import zipfile
 from datetime import UTC, datetime
 
@@ -250,9 +251,7 @@ def download_task(
         raise HTTPException(409, "task has no output yet")
     if len(outs) == 1:
         f = outs[0]
-        media = (
-            "application/pdf" if f.filename.lower().endswith(".pdf") else "application/octet-stream"
-        )
+        media = mimetypes.guess_type(f.filename)[0] or "application/octet-stream"
         return Response(
             blobs.read(f.sha256),
             media_type=media,
