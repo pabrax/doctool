@@ -189,6 +189,8 @@ const es: Dict = {
     addBlank: "Añadir página en blanco",
     rotateRight: "Rotar a la derecha",
     rotateLeft: "Rotar a la izquierda",
+    moveLeft: "Mover a la izquierda",
+    moveRight: "Mover a la derecha",
     duplicate: "Duplicar",
     deletePage: "Eliminar página",
     pageLabel: "Página {{n}}",

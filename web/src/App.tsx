@@ -1,7 +1,8 @@
-import { FileText, Library, Menu, Monitor, Moon, Sun } from "lucide-react";
+import { FileText, Library, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, Route, Routes } from "react-router-dom";
+import { CommandPalette } from "@/components/CommandPalette";
 import { setLanguage } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useTheme, type Theme } from "@/lib/theme";
@@ -55,6 +56,7 @@ const nextTheme: Record<Theme, Theme> = { system: "light", light: "dark", dark: 
 function Shell() {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [theme, setTheme] = useTheme();
   const ThemeIcon = themeIcon[theme];
   const themeLabel = { system: t("nav.themeSystem"), light: t("nav.themeLight"), dark: t("nav.themeDark") }[theme];
@@ -90,7 +92,17 @@ function Shell() {
           >
             <Menu aria-hidden className="h-5 w-5" />
           </button>
-          <p className="hidden text-sm text-muted sm:block">{t("app.tagline")}</p>
+          <p className="hidden text-sm text-muted lg:block">{t("app.tagline")}</p>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-label={t("nav.palette")}
+            className="flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted hover:bg-surface-2"
+          >
+            <Search aria-hidden className="h-4 w-4" />
+            <span className="hidden sm:inline">{t("nav.search")}</span>
+            <kbd className="hidden rounded border border-border px-1.5 text-xs sm:inline">Ctrl K</kbd>
+          </button>
           <div className="ml-auto flex items-center gap-1">
             <label className="sr-only" htmlFor="lang">
               {t("nav.language")}
@@ -115,6 +127,7 @@ function Shell() {
             </button>
           </div>
         </header>
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
         <main id="main" className="min-w-0 flex-1" tabIndex={-1}>
           <Outlet />
         </main>

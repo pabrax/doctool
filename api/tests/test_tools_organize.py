@@ -135,3 +135,34 @@ def test_organize_empty_order_is_422(client):
 def test_tools_listing_includes_t4_tools(client):
     ids = {t["id"] for t in client.get("/api/v1/tools").json()}
     assert {"merge", "split", "rotate", "organize"} <= ids
+
+
+def test_organize_per_copy_rotation_list(client):
+    out = run_tool(
+        client,
+        "organize",
+        {"order": [1, 1, "blank", 2], "rotate": [0, 90, 180, 270]},
+        [("o.pdf", make_pdf(2))],
+    )
+    assert rotations(out.content) == [0, 90, 180, 270]
+    assert page_text(out.content) == ["Page 1", "Page 1", "", "Page 2"]
+
+
+def test_organize_per_copy_rotation_adds_to_source_page_rotation(client):
+    src = run_tool(client, "rotate", {"angle": 90}, [("r.pdf", make_pdf(1))]).content
+    out = run_tool(client, "organize", {"order": [1], "rotate": [90]}, [("o.pdf", src)])
+    assert rotations(out.content) == [180]
+
+
+def test_organize_rotate_list_must_match_order_length(client):
+    r = client.post(
+        "/api/v1/tasks", json={"tool": "organize", "params": {"order": [1, 2], "rotate": [90]}}
+    )
+    assert r.status_code == 422
+
+
+def test_organize_rotate_values_are_validated(client):
+    r = client.post(
+        "/api/v1/tasks", json={"tool": "organize", "params": {"order": [1], "rotate": [45]}}
+    )
+    assert r.status_code == 422

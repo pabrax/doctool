@@ -187,6 +187,8 @@ const en = {
     addBlank: "Add blank page",
     rotateRight: "Rotate right",
     rotateLeft: "Rotate left",
+    moveLeft: "Move left",
+    moveRight: "Move right",
     duplicate: "Duplicate",
     deletePage: "Delete page",
     pageLabel: "Page {{n}}",
