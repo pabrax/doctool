@@ -1,0 +1,70 @@
+import re
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from doctool.db import Document, Version
+from doctool.pdfio import inspect_pdf
+from doctool.storage import BlobStore
+
+_BAD = re.compile(r'[\/:*?"<>|\x00-\x1f]')
+
+
+def safe_filename(name: str, default: str = "document.pdf") -> str:
+    """Never used as a path; only as a label and a Content-Disposition name."""
+    name = _BAD.sub("_", name.strip().split("/")[-1].split("\\")[-1])[:200].strip(". ")
+    return name or default
+
+
+def add_version(
+    db: Session,
+    blobs: BlobStore,
+    document: Document,
+    data: bytes,
+    filename: str,
+    parent: Version | None = None,
+    tool: str | None = None,
+    params: dict | None = None,
+) -> Version:
+    info = inspect_pdf(data)
+    sha = blobs.put(data)
+    seq = (document.versions[-1].seq + 1) if document.versions else 1
+    version = Version(
+        document_id=document.id,
+        seq=seq,
+        parent_version_id=parent.id if parent else None,
+        filename=safe_filename(filename),
+        sha256=sha,
+        size=len(data),
+        pages=info.pages,
+        encrypted=info.encrypted,
+        tool=tool,
+        params=params,
+    )
+    document.versions.append(version)
+    db.flush()
+    return version
+
+
+def create_document(db: Session, blobs: BlobStore, data: bytes, filename: str) -> Document:
+    filename = safe_filename(filename)
+    doc = Document(name=filename, tags=[])
+    db.add(doc)
+    db.flush()
+    add_version(db, blobs, doc, data, filename)
+    db.commit()
+    return doc
+
+
+def list_documents(db: Session) -> list[Document]:
+    return list(db.scalars(select(Document).order_by(Document.created_at.desc())))
+
+
+def delete_document(db: Session, blobs: BlobStore, doc: Document) -> None:
+    shas = {v.sha256 for v in doc.versions}
+    db.delete(doc)
+    db.commit()
+    for sha in shas:
+        still_used = db.scalar(select(Version.id).where(Version.sha256 == sha).limit(1))
+        if not still_used:
+            blobs.delete(sha)
