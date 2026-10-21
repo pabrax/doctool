@@ -1,6 +1,6 @@
 # doctool SPEC v0.1 (MVP: PDF only)
 
-Status: PROPOSED, awaiting owner approval (see section 12). Lane for the build: L1+ (L3 for any auth/network exposure change).
+Status: APPROVED 2026-10-21 (see section 12). Lane for the build: L1+ (L3 for any auth/network exposure change).
 
 ## 1. Purpose and principles
 Personal, open-source, non-monetized document workbench: do everything iLovePDF does, locally, **and remember**. Principles, in priority order: (1) files never leave the machine, (2) every output verified valid, (3) simple enough for one maintainer to understand, (4) permissive engines, no AGPL linked into the app, (5) every tool is also an API call and a CLI call.
@@ -97,7 +97,8 @@ pikepdf (merge, split, rotate, delete/reorder pages, encrypt/decrypt, metadata, 
 - **D1 Project license**: MIT/Apache-2.0 (permissive, requires keeping engines permissive or external binaries) vs AGPL-3.0 (lets us use PyMuPDF). Recommendation: **Apache-2.0**.
 - **D2 Architecture**: local server + web UI (recommended) vs fully in-browser WASM (more private-by-construction, but no Ghostscript/OCR/Office without AGPL CDN tricks).
 - **D3 Process**: continue as ODD feature-by-feature (recommended; each milestone = one `odd/tasks/` doc) vs enroll OpenSpec SDD for the API contract.
-Answers are recorded here once given.
+Answers (2026-10-21, owner: "tu plan propuesto es correcto"): **D1 Apache-2.0, D2 local server + web UI, D3 ODD per milestone** (recommendations accepted).
+Environment deviations found at build start: no `uv`, Docker or Ghostscript installed. Build uses venv+pip; compress defaults to a pikepdf+Pillow engine with Ghostscript as optional engine when present; Docker files are written but untested here.
 
 ## 13. Risks
 | Risk | Mitigation |
