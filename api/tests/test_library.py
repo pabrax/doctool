@@ -67,3 +67,12 @@ def test_delete_document(client):
 def test_unknown_ids_404(client):
     assert client.get("/api/v1/documents/nope").status_code == 404
     assert client.get("/api/v1/versions/nope/download").status_code == 404
+
+
+def test_get_single_version_includes_document_id(client):
+    doc = upload(client).json()
+    vid = doc["latest_version"]["id"]
+    r = client.get(f"/api/v1/versions/{vid}")
+    assert r.status_code == 200
+    assert r.json()["document_id"] == doc["id"] and r.json()["id"] == vid
+    assert client.get("/api/v1/versions/nope").status_code == 404

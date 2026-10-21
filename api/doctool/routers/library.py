@@ -98,6 +98,13 @@ def get_version_or_404(db: Session, blobs: BlobStore, version_id: str) -> Versio
     return version
 
 
+@router.get("/versions/{version_id}", response_model=VersionOut)
+def get_version(
+    version_id: str, db: Session = Depends(get_db), blobs: BlobStore = Depends(get_blobs)
+):
+    return get_version_or_404(db, blobs, version_id)
+
+
 @router.get("/versions/{version_id}/download")
 def download_version(
     version_id: str,
