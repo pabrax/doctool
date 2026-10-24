@@ -100,9 +100,9 @@ test("protect with a password, then unlock: wrong password is refused, right one
 test("language and theme choices persist across reloads", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Language").selectOption("es");
-  await expect(page.getByRole("heading", { level: 1, name: "Biblioteca" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "¿Qué hacemos con tus PDF?" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { level: 1, name: "Biblioteca" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "¿Qué hacemos con tus PDF?" })).toBeVisible();
 
   await page.getByRole("button", { name: /Tema/ }).click(); // system -> light
   await page.getByRole("button", { name: /Tema/ }).click(); // light -> dark

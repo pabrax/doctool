@@ -122,6 +122,7 @@ const en = {
   },
   dropzone: {
     title: "Drop files here or click to select",
+    release: "Release to add your files",
     pdf: "PDF files",
     image: "Images (JPG, PNG, WEBP, GIF, BMP)",
     pdfImage: "A PDF, plus an image for image watermarks",
@@ -153,6 +154,11 @@ const en = {
     too_large: "The file or page is too large to process.",
     invalid: "Some options are not valid.",
     generic: "Something went wrong.",
+  },
+  home: {
+    title: "What shall we do with your PDFs?",
+    subtitle: "Pick a tool, or drop a file into your library. Everything stays on this computer.",
+    tools: "Tools",
   },
   library: {
     title: "Library",

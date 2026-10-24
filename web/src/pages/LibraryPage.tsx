@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Lock, Trash2 } from "lucide-react";
+import { Download, FolderOpen, Lock, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Dropzone } from "@/components/Dropzone";
+import { ToolLauncher } from "@/components/ToolLauncher";
 import { cardClass, inputClass } from "@/components/ui";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -36,10 +37,20 @@ export function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">{t("library.title")}</h1>
-      <p className="mt-1 text-sm text-muted">{t("library.subtitle")}</p>
+      <h1 className="font-display text-3xl font-semibold sm:text-4xl">{t("home.title")}</h1>
+      <p className="mt-2 max-w-2xl text-base text-muted">{t("home.subtitle")}</p>
 
       <div className="mt-6">
+        <ToolLauncher />
+      </div>
+
+      <h2 className="font-display mt-12 flex items-baseline gap-3 text-xl font-semibold">
+        {t("library.title")}
+        {docs && docs.length > 0 && <span className="tabular text-sm font-normal text-muted">{docs.length}</span>}
+      </h2>
+      <p className="mt-1 text-sm text-muted">{t("library.subtitle")}</p>
+
+      <div className="mt-4">
         <Dropzone accepts="pdf" compact onFiles={(files) => upload.mutate(files)} />
         <div aria-live="polite" className="mt-2 text-sm">
           {upload.isPending && <p className="text-muted">{t("library.uploading")}</p>}
@@ -73,7 +84,12 @@ export function LibraryPage() {
           {errorText(t, error)}
         </p>
       )}
-      {docs && docs.length === 0 && <p className="mt-6 text-sm text-muted">{t("library.empty")}</p>}
+      {docs && docs.length === 0 && (
+        <div className="mt-6 flex items-center gap-4 rounded-2xl border border-dashed border-border p-5">
+          <FolderOpen aria-hidden className="h-8 w-8 shrink-0 text-muted" />
+          <p className="text-sm text-muted">{t("library.empty")}</p>
+        </div>
+      )}
       {docs && docs.length > 0 && visible.length === 0 && <p className="mt-6 text-sm text-muted">{t("library.noResults")}</p>}
 
       <ul className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4">
@@ -96,7 +112,7 @@ function DocCard({ doc, locale, onDelete }: { doc: Doc; locale: string; onDelete
   const { t } = useTranslation();
   const v = doc.latest_version;
   return (
-    <li className={`${cardClass} flex flex-col overflow-hidden`}>
+    <li className={`${cardClass} flex flex-col overflow-hidden shadow-card transition duration-200 hover:-translate-y-0.5 motion-reduce:transform-none`}>
       <Link to={`/library/${doc.id}`} className="block bg-surface-2" aria-label={`${t("common.open")}: ${doc.name}`}>
         {v.encrypted ? (
           <div className="flex aspect-[3/4] items-center justify-center text-muted">
@@ -112,10 +128,10 @@ function DocCard({ doc, locale, onDelete }: { doc: Doc; locale: string; onDelete
         )}
       </Link>
       <div className="flex flex-1 flex-col gap-1 p-3">
-        <Link to={`/library/${doc.id}`} className="truncate text-sm font-medium hover:underline" title={doc.name}>
+        <Link to={`/library/${doc.id}`} className="truncate text-sm font-semibold hover:underline" title={doc.name}>
           {doc.name}
         </Link>
-        <p className="text-xs text-muted">
+        <p className="tabular text-xs text-muted">
           {v.encrypted ? t("common.encrypted") : v.pages ? t("common.pages", { count: v.pages }) : ""}
           {" · "}
           {formatBytes(v.size)}
@@ -126,7 +142,7 @@ function DocCard({ doc, locale, onDelete }: { doc: Doc; locale: string; onDelete
         {doc.tags.length > 0 && (
           <p className="mt-1 flex flex-wrap gap-1">
             {doc.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent">
+              <span key={tag} className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-text">
                 {tag}
               </span>
             ))}

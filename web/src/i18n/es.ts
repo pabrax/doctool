@@ -128,6 +128,7 @@ const es: Dict = {
     image: "Imágenes (JPG, PNG, WEBP, GIF, BMP)",
     pdfImage: "Un PDF y, para marcas de agua con imagen, una imagen",
     fromLibrary: "Desde la biblioteca",
+    release: "Suelta para añadir tus archivos",
     pick: "Elegir archivos",
   },
   toolPage: {
@@ -155,6 +156,11 @@ const es: Dict = {
     too_large: "El archivo o la página es demasiado grande para procesarse.",
     invalid: "Algunas opciones no son válidas.",
     generic: "Algo salió mal.",
+  },
+  home: {
+    title: "¿Qué hacemos con tus PDF?",
+    subtitle: "Elige una herramienta o suelta un archivo en tu biblioteca. Todo se queda en este equipo.",
+    tools: "Herramientas",
   },
   library: {
     title: "Biblioteca",

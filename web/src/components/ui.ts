@@ -7,4 +7,4 @@ export const labelClass = "mb-1 block text-sm font-medium text-text";
 
 export const hintClass = "mt-1 text-xs text-muted";
 
-export const cardClass = "rounded-xl border border-border bg-surface";
+export const cardClass = "rounded-2xl border border-border bg-surface";
