@@ -152,7 +152,7 @@ function Organizer({ versionId }: { versionId: string }) {
   if (version.data.encrypted) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold">{t("organizer.title")}</h1>
+        <h1 className="font-display text-3xl font-semibold">{t("organizer.title")}</h1>
         <p className={`${cardClass} mt-4 p-4 text-sm`}>{t("document.encryptedNote")}</p>
         <Link to={`/library/${version.data.document_id}`} className="mt-4 inline-block text-sm text-accent hover:underline">
           ← {version.data.filename}
@@ -162,8 +162,8 @@ function Organizer({ versionId }: { versionId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">{t("organizer.title")}</h1>
+    <div data-group="organize" className="mx-auto max-w-6xl p-4 sm:p-6">
+      <h1 className="font-display text-3xl font-semibold">{t("organizer.title")}</h1>
       <p className="mt-1 text-sm text-muted">
         {version.data.filename} — {t("organizer.hint")}
       </p>
@@ -256,7 +256,7 @@ function PageCard({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`${cardClass} p-2 ${isDragging ? "z-20 opacity-80 shadow-xl" : ""}`}
+      className={`${cardClass} group/page relative p-2 shadow-card transition duration-200 hover:-translate-y-1 hover:border-g focus-within:-translate-y-1 focus-within:border-g focus-within:ring-2 focus-within:ring-g motion-reduce:transform-none ${isDragging ? "z-20 scale-105 border-g opacity-90 shadow-2xl" : ""}`}
     >
       <div className="flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface-2">
         {item.source === "blank" ? (
@@ -268,13 +268,17 @@ function PageCard({
             alt={label}
             loading="lazy"
             src={api.thumbnailUrl(versionId, item.source, 240)}
-            className="max-h-full max-w-full bg-white object-contain transition-transform"
+            className="max-h-full max-w-full bg-white object-contain shadow-sm transition-transform"
             style={{ transform: `rotate(${item.rotate}deg)` }}
           />
         )}
       </div>
-      <p className="mt-1 text-center text-xs text-muted">
-        {index + 1}. {label}
+      <p className="tabular mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-muted">
+        <span aria-hidden className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-g px-1 font-semibold text-g-fg">{index + 1}</span>
+        <span className="sr-only">
+          {index + 1}. {label}
+        </span>
+        <span aria-hidden>{label}</span>
       </p>
       <div className="mt-1 flex flex-wrap justify-center gap-0.5">
         <button

@@ -5,7 +5,9 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { cardClass, inputClass, labelClass, hintClass } from "@/components/ui";
+import { ToolIcon } from "@/components/ToolIcon";
 import { api } from "@/lib/api";
+import { isKnownGroup } from "@/lib/toolIcons";
 import { errorText } from "@/lib/errors";
 import type { InputRef, Version } from "@/lib/types";
 import { toolPath, useTools } from "@/lib/useTools";
@@ -82,10 +84,10 @@ export function DocumentPage() {
   return (
     <div className="mx-auto grid max-w-6xl gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_22rem]">
       <section aria-labelledby="doc-title" className="min-w-0">
-        <h1 id="doc-title" className="truncate text-2xl font-semibold">
+        <h1 id="doc-title" className="font-display truncate text-3xl font-semibold">
           {doc.data.name}
         </h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="tabular mt-1 text-sm text-muted">
           {t("document.viewing")}: {t("common.version", { n: current.seq })} · {formatBytes(current.size)}
         </p>
 
@@ -95,14 +97,14 @@ export function DocumentPage() {
           <iframe
             title={`${t("document.preview")}: ${doc.data.name}`}
             src={api.versionDownloadUrl(current.id, true)}
-            className="mt-4 h-[70vh] w-full rounded-xl border border-border bg-white"
+            className="mt-4 h-[70vh] w-full rounded-2xl border border-border bg-white shadow-card"
           />
         )}
       </section>
 
       <div className="grid content-start gap-6">
-        <section className={`${cardClass} p-4`} aria-labelledby="meta-edit">
-          <h2 id="meta-edit" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+        <section className={`${cardClass} p-4 shadow-card`} aria-labelledby="meta-edit">
+          <h2 id="meta-edit" className="font-display mb-3 text-lg font-semibold">
             {t("document.rename")}
           </h2>
           <form
@@ -143,8 +145,8 @@ export function DocumentPage() {
           </form>
         </section>
 
-        <section className={`${cardClass} p-4`} aria-labelledby="actions-h">
-          <h2 id="actions-h" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+        <section className={`${cardClass} p-4 shadow-card`} aria-labelledby="actions-h">
+          <h2 id="actions-h" className="font-display mb-3 text-lg font-semibold">
             {t("document.actions")}
           </h2>
           <ul className="flex flex-wrap gap-2">
@@ -152,8 +154,9 @@ export function DocumentPage() {
               ?.filter((x) => x.accepts !== "image")
               .filter((x) => !current.encrypted || x.id === "unlock")
               .map((x) => (
-                <li key={x.id}>
-                  <Button size="sm" onClick={() => use(x.id)}>
+                <li key={x.id} data-group={isKnownGroup(x.group) ? x.group : "none"}>
+                  <Button size="sm" className="border-l-4 border-l-g" onClick={() => use(x.id)}>
+                    <ToolIcon toolId={x.id} group={x.group} variant="bare" className="h-4 w-4" />
                     {toolTitle(x.id)}
                   </Button>
                 </li>
@@ -161,13 +164,13 @@ export function DocumentPage() {
           </ul>
         </section>
 
-        <section className={`${cardClass} p-4`} aria-labelledby="hist-h">
-          <h2 id="hist-h" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+        <section className={`${cardClass} p-4 shadow-card`} aria-labelledby="hist-h">
+          <h2 id="hist-h" className="font-display mb-3 text-lg font-semibold">
             {t("document.versions")}
           </h2>
           <ol className="grid gap-2">
             {[...(versions.data ?? [])].reverse().map((v) => (
-              <li key={v.id} className={`rounded-lg border p-2 ${v.id === current.id ? "border-accent bg-accent-soft" : "border-border"}`}>
+              <li key={v.id} className={`rounded-xl border p-2 transition-colors ${v.id === current.id ? "border-text bg-surface-2" : "border-border"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <button type="button" className="min-w-0 text-left" onClick={() => setSelected(v.id)} aria-current={v.id === current.id}>
                     <span className="block text-sm font-medium">
@@ -193,8 +196,8 @@ export function DocumentPage() {
           </ol>
         </section>
 
-        <section className={`${cardClass} p-4`} aria-labelledby="props-h">
-          <h2 id="props-h" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+        <section className={`${cardClass} p-4 shadow-card`} aria-labelledby="props-h">
+          <h2 id="props-h" className="font-display mb-3 text-lg font-semibold">
             {t("document.metadata")}
           </h2>
           {meta.data && Object.keys(meta.data.info).length > 0 ? (

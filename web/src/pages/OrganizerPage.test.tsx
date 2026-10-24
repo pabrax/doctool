@@ -49,7 +49,7 @@ describe("Organizer page", () => {
     expect(cards()).toHaveLength(3);
     await userEvent.click(screen.getByRole("button", { name: /(add blank page|añadir página en blanco)/i }));
     expect(cards()).toHaveLength(4);
-    expect(within(cards()[3]).getByText(/^(blank|en blanco)$/i)).toBeInTheDocument();
+    expect(within(cards()[3]).getByText(/^4\. (blank|en blanco)$/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /^(reset|restablecer)$/i }));
     expect(cards()).toHaveLength(3);
