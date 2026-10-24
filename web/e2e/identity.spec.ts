@@ -28,14 +28,15 @@ test("every registered tool has its own icon and a known group in the sidebar", 
 });
 
 for (const theme of ["light", "dark"] as const) {
-  test(`five views are axe-clean, same-origin only, fonts self-hosted (${theme})`, async ({ browser }) => {
+  test(`five views are axe-clean, same-origin only, fonts self-hosted (${theme})`, async ({ browser, baseURL }) => {
+    const origin = new URL(baseURL!).origin;
     const context = await browser.newContext({ locale: "en-US" });
     await context.addInitScript((th) => localStorage.setItem("doctool.theme", th), theme);
     const page = await context.newPage();
     const foreign: string[] = [];
     page.on("request", (r) => {
       const u = r.url();
-      if (!u.startsWith("http://127.0.0.1:8124") && !u.startsWith("data:") && !u.startsWith("blob:")) foreign.push(u);
+      if (!u.startsWith(origin) && !u.startsWith("data:") && !u.startsWith("blob:")) foreign.push(u);
     });
     const found: Record<string, string[]> = {};
 

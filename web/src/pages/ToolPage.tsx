@@ -213,7 +213,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <a
                 href={api.taskDownloadUrl(result.id)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-110 active:translate-y-px"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-95 active:translate-y-px"
               >
                 <Download aria-hidden className="h-4 w-4" />
                 {outputs.length > 1 ? t("common.downloadZip") : t("common.download")}

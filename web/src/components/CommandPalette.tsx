@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ToolIcon } from "@/components/ToolIcon";
 import { api } from "@/lib/api";
-import { toolPath, useTools } from "@/lib/useTools";
+import { sortByGroup, toolPath, useTools } from "@/lib/useTools";
 
 interface Props {
   open: boolean;
@@ -55,13 +55,13 @@ export function CommandPalette({ open, onOpenChange }: Props) {
       <Command.List className={`max-h-[50vh] overflow-auto p-2 ${heading}`}>
         <Command.Empty className="px-3 py-6 text-center text-sm text-muted">{t("palette.empty")}</Command.Empty>
         <Command.Group heading={t("palette.go")}>
-          <Command.Item className={item} value={t("nav.library")} onSelect={() => go("/")}>
+          <Command.Item className={item} value={t("nav.home")} onSelect={() => go("/")}>
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2"><Library aria-hidden className="h-[1.15rem] w-[1.15rem]" /></span>
-            {t("nav.library")}
+            {t("nav.home")}
           </Command.Item>
         </Command.Group>
         <Command.Group heading={t("palette.tools")}>
-          {tools.map((x) => {
+          {sortByGroup(tools).map((x) => {
             const title = t(`tools.${x.id}.title`, { defaultValue: x.title });
             return (
               <Command.Item key={x.id} className={item} value={`${title} ${x.id}`} onSelect={() => go(toolPath(x.id))}>

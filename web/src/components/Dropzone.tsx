@@ -59,7 +59,7 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact }: 
       }}
       className={cn(
         "flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed text-center transition duration-200 motion-reduce:transform-none",
-        compact ? "px-4 py-6" : "px-6 py-14",
+        compact ? "px-4 py-3 sm:flex-row sm:justify-center sm:gap-4" : "px-6 py-14",
         over ? "scale-[1.01] border-g bg-g-soft shadow-card" : "border-border bg-surface",
       )}
     >
@@ -80,7 +80,7 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact }: 
       <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
-          className="inline-flex min-h-10 items-center rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-110 active:translate-y-px"
+          className="inline-flex min-h-10 items-center rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-95 active:translate-y-px"
           onClick={() => input.current?.click()}
         >
           {t("dropzone.pick")}

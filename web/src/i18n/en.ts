@@ -2,6 +2,7 @@ const en = {
   app: { name: "doctool", tagline: "Your documents, under your control" },
   nav: {
     library: "Library",
+    home: "Home",
     tools: "Tools",
     menu: "Menu",
     language: "Language",

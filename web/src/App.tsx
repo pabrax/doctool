@@ -29,7 +29,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     <nav aria-label={t("nav.tools")} className="flex h-full flex-col gap-4 overflow-y-auto p-3">
       <NavLink to="/" end className={navLink} onClick={onNavigate}>
         <Library aria-hidden className="h-4 w-4" />
-        {t("nav.library")}
+        {t("nav.home")}
       </NavLink>
       {GROUP_ORDER.map((group) => {
         const items = tools.filter((x) => x.group === group);
@@ -97,7 +97,7 @@ function Shell() {
           >
             <Menu aria-hidden className="h-5 w-5" />
           </button>
-          <p className="font-display hidden text-base italic text-muted lg:block">{t("app.tagline")}</p>
+          <p className="font-display hidden text-base text-muted lg:block">{t("app.tagline")}</p>
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}

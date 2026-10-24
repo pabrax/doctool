@@ -4,6 +4,7 @@ const es: Dict = {
   app: { name: "doctool", tagline: "Tus documentos, bajo tu control" },
   nav: {
     library: "Biblioteca",
+    home: "Inicio",
     tools: "Herramientas",
     menu: "Menú",
     language: "Idioma",

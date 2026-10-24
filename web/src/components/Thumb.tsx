@@ -22,6 +22,7 @@ export function Thumb({ src, alt = "", ...rest }: ImgHTMLAttributes<HTMLImageEle
 
   useEffect(() => {
     let cancelled = false;
+    setActive(false); // a new src goes back to the end of the queue
     const { turn, release } = takeTurn();
     releaseRef.current = release;
     const timer = { id: 0 };

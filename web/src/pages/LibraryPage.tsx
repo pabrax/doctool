@@ -38,14 +38,14 @@ export function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="font-display text-3xl font-semibold sm:text-4xl">{t("home.title")}</h1>
-      <p className="mt-2 max-w-2xl text-base text-muted">{t("home.subtitle")}</p>
+      <h1 className="font-display text-2xl font-semibold sm:text-3xl">{t("home.title")}</h1>
+      <p className="mt-1 max-w-2xl text-sm text-muted">{t("home.subtitle")}</p>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <ToolLauncher />
       </div>
 
-      <h2 className="font-display mt-12 flex items-baseline gap-3 text-xl font-semibold">
+      <h2 id="library" className="font-display mt-8 flex scroll-mt-4 items-baseline gap-3 text-xl font-semibold">
         {t("library.title")}
         {docs && docs.length > 0 && <span className="tabular text-sm font-normal text-muted">{docs.length}</span>}
       </h2>

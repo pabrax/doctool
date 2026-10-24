@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { isKnownGroup } from "@/lib/toolIcons";
 import { errorText } from "@/lib/errors";
 import type { InputRef, Version } from "@/lib/types";
-import { toolPath, useTools } from "@/lib/useTools";
+import { sortByGroup, toolPath, useTools } from "@/lib/useTools";
 import { formatBytes, formatDate, uid } from "@/lib/utils";
 
 export function DocumentPage() {
@@ -150,8 +150,8 @@ export function DocumentPage() {
             {t("document.actions")}
           </h2>
           <ul className="flex flex-wrap gap-2">
-            {tools
-              ?.filter((x) => x.accepts !== "image")
+            {sortByGroup(tools ?? [])
+              .filter((x) => x.accepts !== "image")
               .filter((x) => !current.encrypted || x.id === "unlock")
               .map((x) => (
                 <li key={x.id} data-group={isKnownGroup(x.group) ? x.group : "none"}>

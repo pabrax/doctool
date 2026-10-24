@@ -13,3 +13,4 @@ web/e2e/.data/
 web/e2e/.fixtures/
 web/test-results/
 web/playwright-report/
+web/tsconfig.tsbuildinfo

@@ -21,6 +21,7 @@ if (process.env.TEST_WORKER_INDEX === undefined) {
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
+  expect: { timeout: 15_000 }, // Ghostscript/pikepdf tasks can exceed 5 s on a busy laptop
   workers: 1,
   fullyParallel: false,
   reporter: [["list"]],
