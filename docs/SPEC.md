@@ -65,7 +65,7 @@ pikepdf (merge, split, rotate, delete/reorder pages, encrypt/decrypt, metadata, 
 ## 8. UI direction
 - Layout: left rail tool groups (Organize / Optimize / Convert / Edit / Security) mirroring iLovePDF mental model + **Library** as home; command palette (Ctrl+K) to jump to any tool; each tool page = dropzone -> file cards (reorder, per-file options) -> options side panel -> big primary action -> result card with "Download", "Save to library", "Use as input for another tool".
 - Page organizer: thumbnail grid (pypdfium2 server thumbs, lazy), dnd-kit reorder, multi-select, keyboard operable.
-- Visual: neutral palette + one accent, tokens as CSS variables, light/dark/system, 8-pt spacing, one icon set (Lucide), generous empty states, skeleton loaders, optimistic progress via SSE.
+- Visual: neutral ink accent plus one color per tool group (see `docs/adr-ui-identity.md`), Fraunces headings + Inter body (self-hosted), tokens as CSS variables, light/dark/system, 8-pt spacing, one icon set (Lucide), generous empty states, skeleton loaders, optimistic progress via SSE.
 - Quality gates: WCAG 2.1 AA (focus rings, contrast, keyboard drag alternative, ARIA live for progress), es/en copy. Apply `design:design-system` for tokens, `design:ux-copy` for microcopy, `design:accessibility-review` and `design:design-critique` at each milestone.
 
 ## 9. Security and robustness (treat every input PDF as hostile)
