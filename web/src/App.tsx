@@ -1,7 +1,9 @@
-import { FileText, Library, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
+import { Library, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, Route, Routes } from "react-router-dom";
+import { ToolIcon } from "@/components/ToolIcon";
+import { LogoMark } from "@/components/Logo";
 import { CommandPalette } from "@/components/CommandPalette";
 import { setLanguage } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -14,8 +16,10 @@ import { ToolPage } from "@/pages/ToolPage";
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-    isActive ? "bg-accent-soft font-medium text-accent" : "text-text hover:bg-surface-2",
+    "relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+    isActive
+      ? "bg-g-soft font-semibold text-g-ink before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full before:bg-g"
+      : "text-text hover:bg-surface-2",
   );
 
 function Sidebar({ onNavigate }: { onNavigate: () => void }) {
@@ -31,13 +35,16 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         const items = tools.filter((x) => x.group === group);
         if (!items.length) return null;
         return (
-          <div key={group}>
-            <h2 className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t(`groups.${group}`)}</h2>
+          <div key={group} data-group={group}>
+            <h2 className="flex items-center gap-2 px-3 pb-1 text-sm font-semibold text-g-ink">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-[3px] bg-g" />
+              {t(`groups.${group}`)}
+            </h2>
             <ul>
               {items.map((x) => (
                 <li key={x.id}>
                   <NavLink to={toolPath(x.id)} className={navLink} onClick={onNavigate}>
-                    <FileText aria-hidden className="h-4 w-4 shrink-0" />
+                    <ToolIcon toolId={x.id} group={x.group} variant="bare" />
                     {t(`tools.${x.id}.title`, { defaultValue: x.title })}
                   </NavLink>
                 </li>
@@ -73,11 +80,9 @@ function Shell() {
           open ? "block" : "hidden",
         )}
       >
-        <div className="hidden items-center gap-2 px-4 py-4 md:flex">
-          <div aria-hidden className="grid h-7 w-7 place-items-center rounded-md bg-accent text-accent-fg">
-            <FileText className="h-4 w-4" />
-          </div>
-          <span className="text-base font-semibold">{t("app.name")}</span>
+        <div className="hidden items-center gap-2.5 px-4 py-4 md:flex">
+          <LogoMark className="h-8 w-8" />
+          <span className="font-display text-xl font-semibold">{t("app.name")}</span>
         </div>
         <Sidebar onNavigate={() => setOpen(false)} />
       </aside>
@@ -92,16 +97,16 @@ function Shell() {
           >
             <Menu aria-hidden className="h-5 w-5" />
           </button>
-          <p className="hidden text-sm text-muted lg:block">{t("app.tagline")}</p>
+          <p className="font-display hidden text-base italic text-muted lg:block">{t("app.tagline")}</p>
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
             aria-label={t("nav.palette")}
-            className="flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted hover:bg-surface-2"
+            className="flex min-h-10 items-center gap-2 rounded-full border border-border bg-bg px-4 text-sm text-muted transition-colors hover:border-text/40 hover:bg-surface-2"
           >
             <Search aria-hidden className="h-4 w-4" />
             <span className="hidden sm:inline">{t("nav.search")}</span>
-            <kbd className="hidden rounded border border-border px-1.5 text-xs sm:inline">Ctrl K</kbd>
+            <kbd className="hidden rounded-md border border-border bg-surface px-1.5 text-xs sm:inline">Ctrl K</kbd>
           </button>
           <div className="ml-auto flex items-center gap-1">
             <label className="sr-only" htmlFor="lang">

@@ -199,12 +199,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+button,
+a,
+summary,
+select {
+  touch-action: manipulation;
+}
+
 /* Headings carry the print-shop voice: soft, slightly warm serif. */
 .font-display {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
   letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .tabular {
