@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { doc, mockFetch, renderApp, rotateTool, version } from "@/test/utils";
@@ -34,8 +34,12 @@ describe("Organizer page", () => {
     renderApp("/organize/v1");
     await waitFor(() => expect(cards()).toHaveLength(3));
     const imgs = within(screen.getByRole("list", { name: /pages|páginas/i })).getAllByRole("img");
-    expect(imgs[0]).toHaveAttribute("src", "/api/v1/versions/v1/thumbnail/1?width=240");
-    expect(imgs[2]).toHaveAttribute("src", "/api/v1/versions/v1/thumbnail/3?width=240");
+    // Thumbnails load one at a time (the server renderer is not concurrency-safe): each img gets
+    // its src when the previous one has loaded.
+    for (const [i, img] of imgs.entries()) {
+      await waitFor(() => expect(img).toHaveAttribute("src", `/api/v1/versions/v1/thumbnail/${i + 1}?width=240`));
+      fireEvent.load(img);
+    }
   });
 
   it("deletes, duplicates, adds blank pages and resets", async () => {

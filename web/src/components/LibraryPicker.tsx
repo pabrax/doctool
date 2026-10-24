@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import type { Doc } from "@/lib/types";
 import { formatBytes } from "@/lib/utils";
 import { Button } from "./Button";
+import { Thumb } from "./Thumb";
 
 interface Props {
   open: boolean;
@@ -59,9 +60,7 @@ export function LibraryPicker({ open, onClose, onPick, filter }: Props) {
                       onClose();
                     }}
                   >
-                    <img
-                      alt=""
-                      loading="lazy"
+                    <Thumb
                       src={api.thumbnailUrl(doc.latest_version.id, 1, 80)}
                       className="h-14 w-10 rounded border border-border bg-white object-cover"
                     />

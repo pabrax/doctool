@@ -31,7 +31,7 @@ describe("Command palette", () => {
     setup();
     renderApp("/tools/rotate");
     await screen.findByRole("heading", { level: 1 });
-    await userEvent.click(screen.getByRole("button", { name: /command palette|paleta de comandos/i }));
+    await userEvent.click(screen.getByRole("button", { name: /search tools|buscar herramientas/i }));
     await userEvent.type(await screen.findByRole("combobox"), "contract");
     await userEvent.click(await screen.findByRole("option", { name: /contract\.pdf/i }));
     expect(await screen.findByText(/document not found|documento no encontrado|loading|cargando/i)).toBeInTheDocument();

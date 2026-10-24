@@ -31,6 +31,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/Button";
+import { Thumb } from "@/components/Thumb";
 import { cardClass } from "@/components/ui";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -69,7 +70,7 @@ function DocumentChooser() {
               onClick={() => navigate(`/organize/${d.latest_version.id}`)}
               className={`${cardClass} flex w-full items-center gap-3 p-2 text-left hover:bg-surface-2`}
             >
-              <img alt="" loading="lazy" src={api.thumbnailUrl(d.latest_version.id, 1, 80)} className="h-14 w-10 rounded border border-border bg-white object-cover" />
+              <Thumb src={api.thumbnailUrl(d.latest_version.id, 1, 80)} className="h-14 w-10 rounded border border-border bg-white object-cover" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{d.name}</span>
             </button>
           </li>
@@ -264,9 +265,8 @@ function PageCard({
             {label}
           </div>
         ) : (
-          <img
+          <Thumb
             alt={label}
-            loading="lazy"
             src={api.thumbnailUrl(versionId, item.source, 240)}
             className="max-h-full max-w-full bg-white object-contain shadow-sm transition-transform"
             style={{ transform: `rotate(${item.rotate}deg)` }}

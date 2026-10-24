@@ -101,12 +101,12 @@ function Shell() {
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            aria-label={t("nav.palette")}
+            aria-keyshortcuts="Control+K"
             className="flex min-h-10 items-center gap-2 rounded-full border border-border bg-bg px-4 text-sm text-muted transition-colors hover:border-text/40 hover:bg-surface-2"
           >
             <Search aria-hidden className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("nav.search")}</span>
-            <kbd className="hidden rounded-md border border-border bg-surface px-1.5 text-xs sm:inline">Ctrl K</kbd>
+            <span className="sr-only sm:not-sr-only">{t("nav.search")}</span>
+            <kbd aria-hidden className="hidden rounded-md border border-border bg-surface px-1.5 text-xs sm:inline">Ctrl K</kbd>
           </button>
           <div className="ml-auto flex items-center gap-1">
             <label className="sr-only" htmlFor="lang">

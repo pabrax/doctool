@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Dropzone } from "@/components/Dropzone";
+import { Thumb } from "@/components/Thumb";
 import { ToolLauncher } from "@/components/ToolLauncher";
 import { cardClass, inputClass } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -119,9 +120,7 @@ function DocCard({ doc, locale, onDelete }: { doc: Doc; locale: string; onDelete
             <Lock aria-hidden className="h-10 w-10" />
           </div>
         ) : (
-          <img
-            alt=""
-            loading="lazy"
+          <Thumb
             src={api.thumbnailUrl(v.id, 1, 320)}
             className="aspect-[3/4] w-full bg-white object-cover object-top"
           />
