@@ -10,6 +10,7 @@ import { LibraryPicker } from "@/components/LibraryPicker";
 import { SchemaForm, defaultsFor, type FormValue } from "@/components/SchemaForm";
 import { cardClass } from "@/components/ui";
 import { api } from "@/lib/api";
+import { isKnownGroup, toolIcon } from "@/lib/toolIcons";
 import { errorText, isWrongPassword } from "@/lib/errors";
 import type { Doc, InputRef, Task, Tool } from "@/lib/types";
 import { toolPath, useTools } from "@/lib/useTools";
@@ -112,9 +113,20 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   };
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-1 text-sm text-muted">{description}</p>
+    <div data-group={isKnownGroup(tool.group) ? tool.group : "none"} className="mx-auto max-w-5xl p-4 sm:p-6">
+      <header className="flex items-center gap-4 rounded-2xl border border-border border-l-[6px] border-l-g bg-g-soft p-4 sm:p-5">
+        <span aria-hidden className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-g text-g-fg shadow-sm">
+          {(() => {
+            const Icon = toolIcon(tool.id);
+            return <Icon className="h-7 w-7" />;
+          })()}
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-g-ink">{t(`groups.${tool.group}`, { defaultValue: tool.group })}</p>
+          <h1 className="font-display text-2xl font-semibold sm:text-3xl">{title}</h1>
+          <p className="mt-0.5 text-sm text-muted">{description}</p>
+        </div>
+      </header>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
         <section aria-labelledby="files-h" className="grid content-start gap-4">
@@ -145,8 +157,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           )}
         </section>
 
-        <aside aria-labelledby="options-h" className={`${cardClass} h-fit p-4`}>
-          <h2 id="options-h" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+        <aside aria-labelledby="options-h" className={`${cardClass} h-fit p-4 shadow-card`}>
+          <h2 id="options-h" className="font-display mb-3 text-lg font-semibold">
             {t("toolPage.options")}
           </h2>
           <form
@@ -187,8 +199,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           </div>
         )}
         {result && result.state === "success" && (
-          <section aria-labelledby="result-h" className={`${cardClass} p-4`}>
-            <h2 id="result-h" className="flex items-center gap-2 text-base font-semibold text-ok">
+          <section aria-labelledby="result-h" className={`${cardClass} rise-in border-ok/50 p-5 shadow-card`}>
+            <h2 id="result-h" className="font-display flex items-center gap-2 text-xl font-semibold text-ok">
               <CheckCircle2 aria-hidden className="h-5 w-5" />
               {t("toolPage.resultTitle")}
             </h2>
@@ -201,7 +213,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <a
                 href={api.taskDownloadUrl(result.id)}
-                className="inline-flex min-h-9 items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg hover:brightness-110"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-110 active:translate-y-px"
               >
                 <Download aria-hidden className="h-4 w-4" />
                 {outputs.length > 1 ? t("common.downloadZip") : t("common.download")}
@@ -209,7 +221,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
               {outVersion && (
                 <Link
                   to={`/library/${outVersion.document_id}`}
-                  className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3.5 py-2 text-sm font-medium hover:bg-surface-2"
+                  className="inline-flex min-h-10 items-center rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-2"
                 >
                   {t("toolPage.openInLibrary")}
                 </Link>

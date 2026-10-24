@@ -99,7 +99,7 @@ function Row({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-lg border border-border bg-surface px-2 py-2 ${isDragging ? "opacity-70 shadow-lg" : ""}`}
+      className={`rise-in rounded-xl border border-l-4 border-border border-l-g bg-surface px-2 py-2 shadow-card ${isDragging ? "opacity-70 shadow-lg" : ""}`}
     >
       <div className="flex items-center gap-2">
         <button
@@ -112,10 +112,10 @@ function Row({
         >
           <GripVertical aria-hidden className="h-4 w-4" />
         </button>
-        <FileText aria-hidden className="h-4 w-4 shrink-0 text-muted" />
+        <FileText aria-hidden className="h-4 w-4 shrink-0 text-g-ink" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{item.name}</p>
-          <p className="text-xs text-muted">
+          <p className="tabular text-xs text-muted">
             {[item.pages ? t("common.pages", { count: item.pages }) : null, item.size ? formatBytes(item.size) : null]
               .filter(Boolean)
               .join(" · ")}

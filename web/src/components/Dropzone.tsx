@@ -1,4 +1,4 @@
-import { Upload } from "lucide-react";
+import { FileUp, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Tool } from "@/lib/types";
@@ -58,18 +58,29 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact }: 
         take(e.dataTransfer.files);
       }}
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed text-center transition-colors",
-        compact ? "px-4 py-6" : "px-6 py-12",
-        over ? "border-accent bg-accent-soft" : "border-border bg-surface",
+        "flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed text-center transition duration-200 motion-reduce:transform-none",
+        compact ? "px-4 py-6" : "px-6 py-14",
+        over ? "scale-[1.01] border-g bg-g-soft shadow-card" : "border-border bg-surface",
       )}
     >
-      <Upload aria-hidden className="h-8 w-8 text-muted" />
-      <p className="text-sm font-medium">{t("dropzone.title")}</p>
+      <span
+        aria-hidden
+        className={cn(
+          "inline-flex items-center justify-center rounded-2xl bg-g-soft text-g-ink transition duration-200",
+          compact ? "h-10 w-10" : "h-14 w-14",
+          over && "-translate-y-1 scale-110 bg-g text-g-fg",
+        )}
+      >
+        {over ? <FileUp className="h-6 w-6" /> : <Upload className="h-6 w-6" />}
+      </span>
+      <p className={cn("font-display font-semibold", compact ? "text-base" : "text-xl")}>
+        {over ? t("dropzone.release") : t("dropzone.title")}
+      </p>
       <p className="text-xs text-muted">{kind}</p>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
-          className="inline-flex min-h-9 items-center rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg hover:brightness-110"
+          className="inline-flex min-h-10 items-center rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-110 active:translate-y-px"
           onClick={() => input.current?.click()}
         >
           {t("dropzone.pick")}
