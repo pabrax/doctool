@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Download, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/Button";
@@ -8,13 +8,16 @@ import { Dropzone } from "@/components/Dropzone";
 import { FileList } from "@/components/FileList";
 import { LibraryPicker } from "@/components/LibraryPicker";
 import { SchemaForm, defaultsFor, type FormValue } from "@/components/SchemaForm";
+import { ToolIcon } from "@/components/ToolIcon";
 import { cardClass } from "@/components/ui";
 import { api } from "@/lib/api";
 import { isKnownGroup, toolIcon } from "@/lib/toolIcons";
 import { errorText, isWrongPassword } from "@/lib/errors";
 import type { Doc, InputRef, Task, Tool } from "@/lib/types";
 import { toolPath, useTools } from "@/lib/useTools";
-import { uid } from "@/lib/utils";
+import { nextSteps } from "@/lib/nextSteps";
+import { savedPercent } from "@/lib/savings";
+import { formatBytes, uid } from "@/lib/utils";
 
 export function ToolPage() {
   const { toolId } = useParams();
@@ -40,6 +43,12 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [needPassword, setNeedPassword] = useState<Set<string>>(new Set());
+  /** Size of the single input at the moment the task succeeded (for the "x% smaller" line). */
+  const [sizeBefore, setSizeBefore] = useState<number | null>(null);
+  const resultRef = useRef<HTMLHeadingElement>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
+  /** What "Remove all" took away, so it can be put back. */
+  const [removed, setRemoved] = useState<{ inputs: InputRef[]; passwords: Record<string, string> } | null>(null);
 
   const single = tool.max_files === 1;
   const acceptsPdf = tool.accepts !== "image";
@@ -52,13 +61,31 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
 
   const addFiles = (files: File[]) => {
     const next = files.map<InputRef>((file) => ({ key: uid(), name: file.name, file, size: file.size }));
+    setRemoved(null);
     setInputs((cur) => (single ? next.slice(0, 1) : [...cur, ...next]));
   };
   const addDoc = (doc: Doc) => {
     const v = doc.latest_version;
     const ref: InputRef = { key: uid(), name: v.filename, versionId: v.id, pages: v.pages, size: v.size };
+    setRemoved(null);
     setInputs((cur) => (single ? [ref] : [...cur, ref]));
   };
+  const clearAll = () => {
+    setRemoved({ inputs, passwords });
+    setInputs([]);
+    setPasswords({});
+    setNeedPassword(new Set());
+  };
+  const undoClear = () => {
+    if (!removed) return;
+    setInputs(removed.inputs);
+    setPasswords(removed.passwords);
+    setRemoved(null);
+  };
+  // The button that was clicked is gone after "Remove all": hand focus to "Undo" so keyboard users are not dropped.
+  useEffect(() => {
+    if (removed) undoRef.current?.focus();
+  }, [removed]);
 
   const run = useMutation<Task, unknown, void>({
     mutationFn: async () => {
@@ -78,6 +105,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
       }
     },
     onSuccess: () => {
+      setSizeBefore(inputs.length === 1 ? (inputs[0].size ?? null) : null);
       setNeedPassword(new Set());
       void qc.invalidateQueries({ queryKey: ["documents"] });
     },
@@ -90,6 +118,16 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   });
 
   const missing = Math.max(0, tool.min_files - inputs.length);
+  const totalSize = inputs.reduce((n, i) => n + (i.size ?? 0), 0);
+  const pagesKnown = inputs.length > 0 && inputs.every((i) => typeof i.pages === "number");
+  const totalPages = inputs.reduce((n, i) => n + (i.pages ?? 0), 0);
+  const summary = [
+    t("toolPage.fileCount", { count: inputs.length }),
+    pagesKnown ? t("common.pages", { count: totalPages }) : null,
+    totalSize > 0 ? formatBytes(totalSize) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const canRun = missing === 0 && !run.isPending;
   const result = run.data;
   const outputs = useMemo(() => result?.files.filter((f) => f.role === "out") ?? [], [result]);
@@ -99,6 +137,29 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     queryFn: () => api.version(firstVersionId!),
     enabled: !!firstVersionId,
   });
+
+  const steps = useMemo(() => nextSteps(tool.id, tools), [tool.id, tools]);
+  const succeeded = result?.state === "success";
+  // The result can land below the fold (mobile stacks files, options, result). Scroll it into view only when it
+  // is not already visible. Focus stays where it is (on Run, so "run again" is one key away) and the
+  // existing aria-live region announces the result, so screen readers do not hear it twice.
+  useEffect(() => {
+    const el = resultRef.current;
+    if (!succeeded || !el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top >= 0 && r.bottom <= window.innerHeight) return;
+    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView?.({ block: "nearest", behavior: calm ? "auto" : "smooth" });
+  }, [succeeded, result?.id]);
+
+  const startOver = () => {
+    run.reset();
+    setInputs([]);
+    setPasswords({});
+    setNeedPassword(new Set());
+    setSizeBefore(null);
+    document.getElementById("main")?.focus();
+  };
 
   const useElsewhere = (toolId: string) => {
     if (!outVersion) return;
@@ -144,14 +205,37 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
               ) : null
             }
           />
+          {/* Always mounted so the announcement is reliable; its text appears when files are removed. */}
+          <div role="status" className="sr-only">
+            {removed && inputs.length === 0 ? t("toolPage.removedAll") : ""}
+          </div>
           {inputs.length > 0 ? (
-            <FileList
-              items={inputs}
-              onChange={setInputs}
-              needPassword={needPassword}
-              passwords={passwords}
-              onPassword={(key, v) => setPasswords((p) => ({ ...p, [key]: v }))}
-            />
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <p className="tabular text-sm font-medium">{summary}</p>
+                {inputs.length > 1 && (
+                  <Button variant="ghost" size="sm" onClick={clearAll}>
+                    {t("toolPage.clearAll")}
+                  </Button>
+                )}
+              </div>
+              <FileList
+                items={inputs}
+                onChange={setInputs}
+                needPassword={needPassword}
+                passwords={passwords}
+                onPassword={(key, v) => setPasswords((p) => ({ ...p, [key]: v }))}
+              />
+            </>
+          ) : removed ? (
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <p id="removed-msg" aria-hidden>
+                {t("toolPage.removedAll")}
+              </p>
+              <Button ref={undoRef} aria-describedby="removed-msg" size="sm" onClick={undoClear}>
+                {t("toolPage.undo")}
+              </Button>
+            </div>
           ) : (
             <p className="text-sm text-muted">{t("toolPage.noFiles")}</p>
           )}
@@ -169,7 +253,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
             className="grid gap-4"
           >
             <SchemaForm toolId={tool.id} schema={tool.params_schema} value={params} onChange={setParams} />
-            {missing > 0 && <p className="text-xs text-muted">{t("toolPage.needFiles", { min: tool.min_files })}</p>}
+            {missing > 0 && <p className="text-xs text-muted">{t("toolPage.needMore", { count: missing })}</p>}
             <Button type="submit" variant="primary" disabled={!canRun}>
               {run.isPending ? (
                 <>
@@ -200,7 +284,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
         )}
         {result && result.state === "success" && (
           <section aria-labelledby="result-h" className={`${cardClass} rise-in border-ok/50 p-5 shadow-card`}>
-            <h2 id="result-h" className="font-display flex items-center gap-2 text-xl font-semibold text-ok">
+            <h2 id="result-h" ref={resultRef} className="font-display flex items-center gap-2 text-xl font-semibold text-ok">
               <CheckCircle2 aria-hidden className="h-5 w-5" />
               {t("toolPage.resultTitle")}
             </h2>
@@ -210,6 +294,21 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                 : outputs[0]?.filename}
               {firstVersionId ? ` — ${t("toolPage.resultSaved")}` : ""}
             </p>
+            {outVersion && outputs.length === 1 && (
+              <p className="tabular mt-1 text-sm font-medium">
+                {tool.id === "compress" && sizeBefore
+                  ? savedPercent(sizeBefore, outVersion.size) !== null
+                    ? t("toolPage.smaller", {
+                        pct: savedPercent(sizeBefore, outVersion.size),
+                        before: formatBytes(sizeBefore),
+                        after: formatBytes(outVersion.size),
+                      })
+                    : t("toolPage.notSmaller", { before: formatBytes(sizeBefore), after: formatBytes(outVersion.size) })
+                  : [outVersion.pages ? t("common.pages", { count: outVersion.pages }) : null, formatBytes(outVersion.size)]
+                      .filter(Boolean)
+                      .join(" · ")}
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <a
                 href={api.taskDownloadUrl(result.id)}
@@ -245,7 +344,27 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                   </select>
                 </label>
               )}
+              <Button variant="ghost" onClick={startOver}>
+                {t("toolPage.startOver")}
+              </Button>
             </div>
+            {outVersion && outputs.length === 1 && !outVersion.encrypted && steps.length > 0 && (
+              <div className="mt-4 border-t border-border pt-3">
+                <p id="next-h" className="text-xs font-semibold text-muted">
+                  {t("toolPage.nextSteps")}
+                </p>
+                <ul aria-labelledby="next-h" className="mt-2 flex flex-wrap gap-2">
+                  {steps.map((x) => (
+                    <li key={x.id} data-group={isKnownGroup(x.group) ? x.group : "none"}>
+                      <Button size="sm" className="border-l-4 border-l-g" onClick={() => useElsewhere(x.id)}>
+                        <ToolIcon toolId={x.id} group={x.group} variant="bare" className="h-4 w-4" />
+                        {t(`tools.${x.id}.title`, { defaultValue: x.title })}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         )}
       </div>

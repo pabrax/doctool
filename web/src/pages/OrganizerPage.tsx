@@ -269,6 +269,7 @@ function PageCard({
             alt={label}
             src={api.thumbnailUrl(versionId, item.source, 240)}
             className="max-h-full max-w-full bg-white object-contain shadow-sm transition-transform"
+            fallbackClassName="aspect-[3/4] h-4/5 border border-dashed border-border"
             style={{ transform: `rotate(${item.rotate}deg)` }}
           />
         )}

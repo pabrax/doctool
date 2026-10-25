@@ -1,7 +1,6 @@
 const en = {
   app: { name: "doctool", tagline: "Your documents, under your control" },
   nav: {
-    library: "Library",
     home: "Home",
     tools: "Tools",
     menu: "Menu",
@@ -133,7 +132,17 @@ const en = {
   toolPage: {
     files: "Files",
     options: "Options",
-    needFiles: "Add at least {{min}} file(s) to continue.",
+    needMore_one: "Add {{count}} more file to continue.",
+    needMore_other: "Add {{count}} more files to continue.",
+    fileCount_one: "{{count}} file",
+    fileCount_other: "{{count}} files",
+    clearAll: "Remove all",
+    removedAll: "All files removed.",
+    undo: "Undo",
+    nextSteps: "Keep going with this file",
+    startOver: "New task",
+    smaller: "{{pct}}% smaller: {{before}} → {{after}}",
+    notSmaller: "Already well optimized: {{after}} (was {{before}})",
     noFiles: "No files yet.",
     resultTitle: "Done",
     resultSaved: "Saved to your library as a new version.",
@@ -160,6 +169,7 @@ const en = {
     title: "What shall we do with your PDFs?",
     subtitle: "Pick a tool, or drop a file into your library. Everything stays on this computer.",
     tools: "Tools",
+    showDetails: "Show descriptions",
   },
   library: {
     title: "Library",

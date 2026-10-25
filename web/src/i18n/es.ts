@@ -3,7 +3,6 @@ import type { Dict } from "./en";
 const es: Dict = {
   app: { name: "doctool", tagline: "Tus documentos, bajo tu control" },
   nav: {
-    library: "Biblioteca",
     home: "Inicio",
     tools: "Herramientas",
     menu: "Menú",
@@ -135,7 +134,17 @@ const es: Dict = {
   toolPage: {
     files: "Archivos",
     options: "Opciones",
-    needFiles: "Añade al menos {{min}} archivo(s) para continuar.",
+    needMore_one: "Añade {{count}} archivo más para continuar.",
+    needMore_other: "Añade {{count}} archivos más para continuar.",
+    fileCount_one: "{{count}} archivo",
+    fileCount_other: "{{count}} archivos",
+    clearAll: "Quitar todos",
+    removedAll: "Se quitaron todos los archivos.",
+    undo: "Deshacer",
+    nextSteps: "Sigue con este archivo",
+    startOver: "Nueva tarea",
+    smaller: "{{pct}} % más pequeño: {{before}} → {{after}}",
+    notSmaller: "Ya estaba bien optimizado: {{after}} (antes {{before}})",
     noFiles: "Aún no hay archivos.",
     resultTitle: "Listo",
     resultSaved: "Guardado en tu biblioteca como nueva versión.",
@@ -162,6 +171,7 @@ const es: Dict = {
     title: "¿Qué hacemos con tus PDF?",
     subtitle: "Elige una herramienta o suelta un archivo en tu biblioteca. Todo se queda en este equipo.",
     tools: "Herramientas",
+    showDetails: "Mostrar descripciones",
   },
   library: {
     title: "Biblioteca",

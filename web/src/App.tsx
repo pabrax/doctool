@@ -1,4 +1,4 @@
-import { Library, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
+import { House, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, Route, Routes } from "react-router-dom";
@@ -28,7 +28,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   return (
     <nav aria-label={t("nav.tools")} className="flex h-full flex-col gap-4 overflow-y-auto p-3">
       <NavLink to="/" end className={navLink} onClick={onNavigate}>
-        <Library aria-hidden className="h-4 w-4" />
+        <House aria-hidden className="h-4 w-4" />
         {t("nav.home")}
       </NavLink>
       {GROUP_ORDER.map((group) => {

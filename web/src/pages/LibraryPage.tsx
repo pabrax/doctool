@@ -6,11 +6,14 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Dropzone } from "@/components/Dropzone";
 import { Thumb } from "@/components/Thumb";
+import { ToolIcon } from "@/components/ToolIcon";
 import { ToolLauncher } from "@/components/ToolLauncher";
 import { cardClass, inputClass } from "@/components/ui";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
+import { isKnownGroup } from "@/lib/toolIcons";
 import type { Doc } from "@/lib/types";
+import { useTools } from "@/lib/useTools";
 import { formatBytes, formatDate } from "@/lib/utils";
 
 export function LibraryPage() {
@@ -112,6 +115,8 @@ export function LibraryPage() {
 function DocCard({ doc, locale, onDelete }: { doc: Doc; locale: string; onDelete: () => void }) {
   const { t } = useTranslation();
   const v = doc.latest_version;
+  const { data: tools } = useTools();
+  const origin = v.tool ? tools?.find((x) => x.id === v.tool) : undefined;
   return (
     <li className={`${cardClass} flex flex-col overflow-hidden shadow-card transition duration-200 hover:-translate-y-0.5 motion-reduce:transform-none`}>
       <Link to={`/library/${doc.id}`} className="block bg-surface-2" aria-label={`${t("common.open")}: ${doc.name}`}>
@@ -138,6 +143,12 @@ function DocCard({ doc, locale, onDelete }: { doc: Doc; locale: string; onDelete
         <p className="text-xs text-muted">
           {t("common.version", { n: v.seq })} · {formatDate(v.created_at, locale)}
         </p>
+        {origin && (
+          <p data-group={isKnownGroup(origin.group) ? origin.group : "none"} className="flex items-center gap-1 text-xs font-medium text-g-ink">
+            <ToolIcon toolId={origin.id} group={origin.group} variant="bare" className="h-4 w-4" />
+            {t(`tools.${origin.id}.title`, { defaultValue: origin.title })}
+          </p>
+        )}
         {doc.tags.length > 0 && (
           <p className="mt-1 flex flex-wrap gap-1">
             {doc.tags.map((tag) => (

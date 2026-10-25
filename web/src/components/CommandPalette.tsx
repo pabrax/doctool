@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
-import { FileText, Library } from "lucide-react";
+import { FileText, House } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -56,7 +56,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
         <Command.Empty className="px-3 py-6 text-center text-sm text-muted">{t("palette.empty")}</Command.Empty>
         <Command.Group heading={t("palette.go")}>
           <Command.Item className={item} value={t("nav.home")} onSelect={() => go("/")}>
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2"><Library aria-hidden className="h-[1.15rem] w-[1.15rem]" /></span>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2"><House aria-hidden className="h-[1.15rem] w-[1.15rem]" /></span>
             {t("nav.home")}
           </Command.Item>
         </Command.Group>
