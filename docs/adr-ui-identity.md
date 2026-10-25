@@ -9,7 +9,7 @@ SPEC section 8 says "neutral palette + one accent". The result was flat and look
 ## Decision (D2)
 - The app accent stays one neutral ink (near-black on light, near-white on dark) for primary chrome.
 - Color is carried by five tool groups (organize cobalt, optimize jade, convert amber, edit vermilion, security violet), used for group markers, tool icons/tiles, the tool-page header band and the primary action of a tool page.
-- Headings use Fraunces (soft serif), body uses Inter; both self-hosted from `web/public/fonts/` (SIL OFL), so the strict CSP (`font-src 'self'`) is unchanged.
+- Headings use Schibsted Grotesk (newspaper grotesk; replaced Fraunces on 2026-10-25 because the soft serif read as Times New Roman), body uses Inter; both self-hosted from `web/public/fonts/` (SIL OFL), so the strict CSP (`font-src 'self'`) is unchanged.
 - Lucide remains the only icon set; each tool gets its own Lucide icon.
 
 ## Why / Criterion

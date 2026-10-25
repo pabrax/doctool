@@ -12,11 +12,11 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Fraunces Variable";
+  font-family: "Schibsted Grotesk Variable";
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url("/fonts/Fraunces-latin-full.woff2") format("woff2-variations");
+  src: url("/fonts/SchibstedGrotesk-latin-wght.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
@@ -182,7 +182,7 @@
   --color-g-soft: var(--g-soft);
   --shadow-card: var(--shadow);
   --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Fraunces Variable", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-display: "Schibsted Grotesk Variable", "Schibsted Grotesk", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
@@ -206,12 +206,10 @@ select {
   touch-action: manipulation;
 }
 
-/* Headings carry the print-shop voice: soft, slightly warm serif. */
+/* Headings carry the print-shop voice: a confident newspaper grotesk. */
 .font-display {
   font-family: var(--font-display);
-  font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   text-wrap: balance;
 }
 

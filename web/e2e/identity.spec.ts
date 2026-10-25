@@ -67,7 +67,7 @@ for (const theme of ["light", "dark"] as const) {
       await document.fonts.ready;
       return [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family);
     });
-    expect(fonts.join(",")).toContain("Fraunces");
+    expect(fonts.join(",")).toContain("Schibsted");
     expect(fonts.join(",")).toContain("Inter");
     expect(foreign).toEqual([]);
     expect(found).toEqual({ home: [], palette: [], tool: [], document: [], organizer: [] });
