@@ -12,6 +12,8 @@ def web_dir(tmp_path):
     (root / "assets").mkdir(parents=True)
     (root / "index.html").write_text("<!doctype html><title>doctool-shell</title>")
     (root / "assets" / "app.js").write_text("console.log('app')")
+    (root / "fonts").mkdir()
+    (root / "fonts" / "f.woff2").write_bytes(b"wOF2")
     (tmp_path / "secret.txt").write_text("TOP-SECRET")
     return root
 
@@ -35,6 +37,12 @@ def test_root_and_spa_routes_serve_index(served):
         r = served.get(path)
         assert r.status_code == 200 and "doctool-shell" in r.text, path
         assert r.headers["content-type"].startswith("text/html")
+
+
+def test_woff2_is_served_with_a_font_content_type(served):
+    r = served.get("/fonts/f.woff2")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "font/woff2"
 
 
 def test_assets_are_served_with_cache_headers(served):

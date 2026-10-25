@@ -1,3 +1,4 @@
+import mimetypes
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
@@ -29,6 +30,8 @@ CSP = "; ".join(
         "form-action 'self'",
     ]
 )
+# The Windows registry has no woff2 entry, so StaticFiles would send octet-stream.
+mimetypes.add_type("font/woff2", ".woff2")
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
