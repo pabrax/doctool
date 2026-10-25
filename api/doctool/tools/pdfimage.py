@@ -4,6 +4,7 @@ from typing import Literal
 import pypdfium2 as pdfium
 from pydantic import BaseModel, Field
 
+from doctool.pdfio import PDFIUM_LOCK
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.pages import parse_pages, stem
 
@@ -25,7 +26,10 @@ class PdfImageTool(Tool):
     Params = PdfImageParams
 
     def run(self, inputs: list[ToolInput], params: PdfImageParams) -> list[ToolOutput]:
-        item = inputs[0]
+        with PDFIUM_LOCK:
+            return self._render(inputs[0], params)
+
+    def _render(self, item: ToolInput, params: PdfImageParams) -> list[ToolOutput]:
         try:
             pdf = pdfium.PdfDocument(item.data, password=item.password)
         except pdfium.PdfiumError as exc:

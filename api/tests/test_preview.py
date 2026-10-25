@@ -103,3 +103,40 @@ def test_purge_expired_tasks_removes_old_tasks_and_orphan_blobs_only(client, tmp
         assert (
             client.get(f"/api/v1/versions/{d['latest_version']['id']}/download").status_code == 200
         )
+
+
+def test_pdfium_renders_never_overlap(client, monkeypatch):
+    """PDFium is not thread-safe: concurrent thumbnail renders must be serialized."""
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    import pypdfium2 as pdfium
+
+    doc = upload(client)
+    real = pdfium.PdfDocument
+    state = {"now": 0, "peak": 0}
+    guard = threading.Lock()
+
+    class Probe:
+        def __init__(self, *args, **kwargs):
+            with guard:
+                state["now"] += 1
+                state["peak"] = max(state["peak"], state["now"])
+            time.sleep(0.05)
+            self._pdf = real(*args, **kwargs)
+
+        def __getitem__(self, i):
+            return self._pdf[i]
+
+        def close(self):
+            self._pdf.close()
+            with guard:
+                state["now"] -= 1
+
+    monkeypatch.setattr(pdfium, "PdfDocument", Probe)
+    url = f"/api/v1/versions/{vid(doc)}/thumbnail/1?width=100"
+    with ThreadPoolExecutor(6) as pool:
+        codes = list(pool.map(lambda _: client.get(url).status_code, range(6)))
+    assert codes == [200] * 6
+    assert state["peak"] == 1

@@ -1,7 +1,11 @@
 import io
+import threading
 from dataclasses import dataclass
 
 import pikepdf
+
+# PDFium is not thread-safe: every pdfium call must hold this lock.
+PDFIUM_LOCK = threading.Lock()
 
 
 class InvalidPdf(ValueError):

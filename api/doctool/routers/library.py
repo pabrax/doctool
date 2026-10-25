@@ -10,7 +10,7 @@ from doctool.config import Settings
 from doctool.db import Document, Version
 from doctool.deps import get_blobs, get_db, get_settings
 from doctool.http import content_disposition
-from doctool.pdfio import InvalidPdf, read_info
+from doctool.pdfio import PDFIUM_LOCK, InvalidPdf, read_info
 from doctool.schemas import DocumentOut, DocumentPatch, VersionOut
 from doctool.storage import BlobStore
 
@@ -133,13 +133,14 @@ def version_thumbnail(
         raise HTTPException(409, "document is encrypted; unlock it first")
     if not version.pages or not 1 <= page <= version.pages:
         raise HTTPException(404, "page not found")
-    pdf = pdfium.PdfDocument(blobs.read(version.sha256))
-    try:
-        pdf_page = pdf[page - 1]
-        page_width, _ = pdf_page.get_size()
-        image = pdf_page.render(scale=width / page_width).to_pil().convert("RGB")
-    finally:
-        pdf.close()
+    with PDFIUM_LOCK:
+        pdf = pdfium.PdfDocument(blobs.read(version.sha256))
+        try:
+            pdf_page = pdf[page - 1]
+            page_width, _ = pdf_page.get_size()
+            image = pdf_page.render(scale=width / page_width).to_pil().convert("RGB")
+        finally:
+            pdf.close()
     if image.width != width:  # pdfium rounds; make the requested width exact
         image = image.resize((width, max(1, round(image.height * width / image.width))))
     buf = io.BytesIO()
