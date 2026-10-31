@@ -7,6 +7,11 @@ keeps a version history you can browse, download and build on.
 Status: **MVP v0.1 (PDF only)**. Specification: [`docs/SPEC.md`](docs/SPEC.md) ·
 research: [`docs/RESEARCH.md`](docs/RESEARCH.md) · feature summary: [`docs/SUMMARY.md`](docs/SUMMARY.md).
 
+<p align="center">
+  <img src="docs/screenshots/home-light.png" alt="doctool home: tool launcher and document library (light theme)" width="49%">
+  <img src="docs/screenshots/home-dark.png" alt="doctool home in the dark theme" width="49%">
+</p>
+
 ## What it does today
 
 | Group | Tools |
@@ -18,6 +23,12 @@ research: [`docs/RESEARCH.md`](docs/RESEARCH.md) · feature summary: [`docs/SUMM
 | Security | Protect (AES-256), Unlock |
 | Library | Every output is a new *version* of its document; history, preview, tags, rename |
 | UX | Ctrl+K command palette, English/Spanish, light/dark, keyboard accessible (axe-checked) |
+
+### Screenshots
+
+| Merge: every tool page is generated from the tool's schema | Visual page organizer |
+|---|---|
+| <img src="docs/screenshots/tool-merge.png" alt="Merge PDF tool page with two files queued"> | <img src="docs/screenshots/organizer.png" alt="Visual page organizer with six page thumbnails"> |
 
 ## Run it (Windows, PowerShell)
 
