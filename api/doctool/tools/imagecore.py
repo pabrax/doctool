@@ -7,7 +7,7 @@ from pathlib import PurePath
 from PIL import Image, ImageOps, UnidentifiedImageError, features
 
 from doctool.tools.base import ToolError
-from doctool.tools.imageutil import MAX_PIXELS, verify_image
+from doctool.tools.imageutil import MAX_PIXELS, open_image, verify_image
 
 _CHECKS = {"png": "zlib", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _PIL_NAMES = {"png": "PNG", "jpeg": "JPEG", "webp": "WEBP", "avif": "AVIF"}
@@ -28,7 +28,7 @@ def load_image(data: bytes, name: str) -> Image.Image:
     except ValueError as exc:
         raise ToolError("damaged", f"cannot read image '{name}': {exc}") from exc
     try:
-        with Image.open(io.BytesIO(data)) as img:
+        with open_image(data) as img:
             if img.width * img.height > MAX_PIXELS:
                 raise ToolError("too_large", f"image '{name}' is too large")
             if getattr(img, "n_frames", 1) > 1:

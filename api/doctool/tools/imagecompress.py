@@ -1,4 +1,3 @@
-import io
 from typing import Literal
 
 from PIL import Image
@@ -12,7 +11,7 @@ from doctool.tools.imagecore import (
     output_name,
     to_target_mode,
 )
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imageutil import open_image, verify_image
 
 # preset -> (quality, longest side cap in px)
 _PRESETS = {"web": (82, 2560), "email": (72, 1600), "max": (60, 1280)}
@@ -62,7 +61,7 @@ class ImageCompressTool(Tool):
 
 def _target_format(data: bytes) -> str:
     """Keep the input format when we can write it, otherwise PNG."""
-    with Image.open(io.BytesIO(data)) as probe:
+    with open_image(data) as probe:
         fmt = _KEEP.get(probe.format or "", "png")
     return fmt if fmt in available_formats() else "png"
 

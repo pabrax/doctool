@@ -1,11 +1,10 @@
 import io
 
-from PIL import Image
 from pydantic import BaseModel
 
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imageutil import open_image, verify_image
 
 _FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 _QUALITY = {"jpeg": 95, "webp": 95, "avif": 90, "png": 95}
@@ -46,14 +45,14 @@ class ImageCleanTool(Tool):
 
 def _source_info(data: bytes) -> tuple[str, bool]:
     """Output format for the source and whether EXIF orientation changes the pixels."""
-    with Image.open(io.BytesIO(data)) as img:
+    with open_image(data) as img:
         return _FORMATS.get(img.format or "", "png"), img.getexif().get(0x0112, 1) != 1
 
 
 def _keep_jpeg(data: bytes, icc: bytes | None) -> bytes | None:
     """Re-save keeping the original quantization tables; None when Pillow cannot."""
     try:
-        with Image.open(io.BytesIO(data)) as img:
+        with open_image(data) as img:
             img.load()
             kwargs: dict = {"quality": "keep", "optimize": True, "progressive": True,
                             "comment": b""}

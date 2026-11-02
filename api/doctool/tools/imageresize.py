@@ -1,4 +1,3 @@
-import io
 from typing import Literal
 
 from PIL import Image
@@ -12,7 +11,7 @@ from doctool.tools.imagecore import (
     output_name,
     to_target_mode,
 )
-from doctool.tools.imageutil import MAX_PIXELS, verify_image
+from doctool.tools.imageutil import MAX_PIXELS, open_image, verify_image
 
 _KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 _QUALITY = 90
@@ -102,7 +101,7 @@ def _target_size(src: tuple[int, int], p: ImageResizeParams) -> tuple[int, int]:
 
 def _target_format(data: bytes) -> str:
     """Keep the input format when we can write it, otherwise PNG."""
-    with Image.open(io.BytesIO(data)) as probe:
+    with open_image(data) as probe:
         fmt = _KEEP.get(probe.format or "", "png")
     return fmt if fmt in available_formats() else "png"
 

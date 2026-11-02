@@ -6,7 +6,7 @@ from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imageutil import open_image, verify_image
 from doctool.tools.pages import stem
 
 PAGE_SIZES_PT = {"A4": (595.2756, 841.8898), "letter": (612.0, 792.0)}
@@ -61,7 +61,7 @@ class ImagePdfTool(Tool):
 def _normalize(item: ToolInput) -> bytes:
     """Hand img2pdf only what it embeds losslessly: baseline JPEG, or opaque RGB/L PNG."""
     try:
-        with Image.open(io.BytesIO(item.data)) as img:
+        with open_image(item.data) as img:
             img.load()
             fmt = img.format
             if fmt == "JPEG" and img.mode in ("RGB", "L") and not _has_exif_rotation(img):

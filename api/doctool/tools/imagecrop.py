@@ -1,12 +1,10 @@
-import io
 from typing import Literal
 
-from PIL import Image
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imageutil import open_image, verify_image
 
 _RATIOS = {"1-1": (1, 1), "4-3": (4, 3), "3-2": (3, 2), "16-9": (16, 9)}
 _FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
@@ -85,7 +83,7 @@ class ImageCropTool(Tool):
 
 
 def _source_format(data: bytes) -> str:
-    with Image.open(io.BytesIO(data)) as img:
+    with open_image(data) as img:
         return _FORMATS.get(img.format or "", "png")
 
 
