@@ -6,13 +6,16 @@ from pathlib import PurePath
 
 from PIL import Image, ImageOps, UnidentifiedImageError, features
 
-from doctool.tools.base import ToolError
-from doctool.tools.imageutil import MAX_PIXELS, verify_image
+from doctool.tools import imageutil
+from doctool.tools.base import ToolError, ToolInput
+from doctool.tools.imageutil import InputError, open_image, verify_image
 
 _CHECKS = {"png": "zlib", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _PIL_NAMES = {"png": "PNG", "jpeg": "JPEG", "webp": "WEBP", "avif": "AVIF"}
 _EXTENSIONS = {"png": "png", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _ALPHA_FORMATS = {"png", "webp", "avif"}
+_KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
+_PRIVATE_INFO = ("exif", "xmp", "XML:com.adobe.xmp", "comment", "photoshop")
 _MAX_SIDE = {"webp": (16383, "WebP"), "jpeg": (65500, "JPEG")}
 
 
@@ -21,25 +24,101 @@ def available_formats() -> list[str]:
     return [fmt for fmt, feature in _CHECKS.items() if features.check(feature)]
 
 
+def unique_name(name: str, used: set[str]) -> str:
+    """`name`, or `stem-2.ext`, `stem-3.ext`... when a case-insensitive twin is already used."""
+    stem, dot, ext = name.rpartition(".")
+    candidate, n = name, 1
+    while candidate.lower() in used:
+        n += 1
+        candidate = f"{stem}-{n}{dot}{ext}"
+    used.add(candidate.lower())
+    return candidate
+
+
+def source_format(data: bytes) -> str:
+    """Our name for the input's own format (MPO counts as jpeg); png when unknown."""
+    with open_image(data) as img:
+        return _KEEP.get(img.format or "", "png")
+
+
+def target_format(data: bytes) -> str:
+    """Keep the input format when we can write it, otherwise PNG."""
+    fmt = source_format(data)
+    return fmt if fmt in available_formats() else "png"
+
+
+def has_private_metadata(data: bytes) -> bool:
+    """True when the file carries EXIF, XMP, a JPEG/GIF comment or PNG text chunks."""
+    with open_image(data) as img:
+        img.load()
+        return bool(
+            any(img.info.get(k) for k in _PRIVATE_INFO)
+            or getattr(img, "text", None)
+            or len(img.getexif())
+        )
+
+
+def check_image(data: bytes) -> None:
+    """Upload check for the image tools: decodable, allowed format, under the per-image cap."""
+    verify_image(data, imageutil.IMAGE_MAX_PIXELS)
+
+
+def preflight(inputs: list[ToolInput]) -> None:
+    """Enforce the pixel caps from the headers alone, before anything is decoded."""
+    total = 0
+    for item in inputs:
+        try:
+            with open_image(item.data) as img:
+                pixels = img.width * img.height
+        except Image.DecompressionBombError as exc:
+            raise ToolError(
+                "too_large", f"image '{item.name}' is too large", file=item.name
+            ) from exc
+        except (UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError) as exc:
+            raise ToolError(
+                "damaged", f"cannot read image '{item.name}'", file=item.name
+            ) from exc
+        if pixels > imageutil.IMAGE_MAX_PIXELS:
+            raise ToolError(
+                "too_large",
+                f"image '{item.name}' is too large ({pixels / 1e6:.0f} megapixels, "
+                f"the limit is {imageutil.IMAGE_MAX_PIXELS / 1e6:.0f})",
+                file=item.name,
+            )
+        total += pixels
+        if total > imageutil.IMAGE_TASK_MAX_PIXELS:
+            raise ToolError(
+                "too_large",
+                f"the pictures are too big to process together; '{item.name}' goes over "
+                f"the limit of {imageutil.IMAGE_TASK_MAX_PIXELS / 1e6:.0f} megapixels in total",
+                file=item.name,
+            )
+
+
 def load_image(data: bytes, name: str) -> Image.Image:
     """Decode fully, reject animation, apply EXIF orientation. Raises ToolError."""
     try:
-        verify_image(data)
+        verify_image(data, imageutil.IMAGE_MAX_PIXELS)
+    except InputError as exc:  # keep the documented state (too_large, not_image, damaged)
+        raise ToolError(exc.state, f"cannot read image '{name}': {exc}", file=name) from exc
     except ValueError as exc:
-        raise ToolError("damaged", f"cannot read image '{name}': {exc}") from exc
+        raise ToolError("damaged", f"cannot read image '{name}': {exc}", file=name) from exc
     try:
-        with Image.open(io.BytesIO(data)) as img:
-            if img.width * img.height > MAX_PIXELS:
-                raise ToolError("too_large", f"image '{name}' is too large")
+        with open_image(data) as img:
+            if img.width * img.height > imageutil.IMAGE_MAX_PIXELS:
+                raise ToolError("too_large", f"image '{name}' is too large", file=name)
             if getattr(img, "n_frames", 1) > 1:
-                raise ToolError("unsupported", "animated images are not supported yet")
+                raise ToolError(
+                    "unsupported", f"'{name}' is animated; animated images are not supported yet",
+                    file=name,
+                )
             img.load()
             return ImageOps.exif_transpose(img)
     except ToolError:
         raise
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError,
             Image.DecompressionBombError) as exc:
-        raise ToolError("damaged", f"cannot read image '{name}'") from exc
+        raise ToolError("damaged", f"cannot read image '{name}'", file=name) from exc
 
 
 def to_target_mode(img: Image.Image, fmt: str, background: str = "#ffffff") -> Image.Image:
@@ -60,7 +139,10 @@ def to_target_mode(img: Image.Image, fmt: str, background: str = "#ffffff") -> I
         return flat
     if img.mode == "L" or (img.mode == "RGB"):
         return img
-    return img.convert("RGB")
+    converted = img.convert("RGB")
+    if img.mode == "CMYK":  # a CMYK profile does not describe the RGB pixels
+        converted.info.pop("icc_profile", None)
+    return converted
 
 
 def _from_16bit(img: Image.Image) -> Image.Image:
@@ -74,15 +156,18 @@ def encode(
     keep_metadata: bool = False,
     icc_profile: bytes | None = None,
     exif: bytes | None = None,
+    file: str | None = None,
 ) -> bytes:
     limit = _MAX_SIDE.get(fmt)
     if limit and max(img.size) > limit[0]:
         raise ToolError(
-            "unsupported", f"{limit[1]} images can be at most {limit[0]} px on each side"
+            "unsupported", f"{limit[1]} images can be at most {limit[0]} px on each side",
+            file=file,
         )
     kwargs: dict = {}
     if fmt == "jpeg":
-        kwargs.update(quality=quality, optimize=True, progressive=True)
+        # comment=b"" stops Pillow re-writing a comment it kept in img.info
+        kwargs.update(quality=quality, optimize=True, progressive=True, comment=b"")
     elif fmt == "webp":
         kwargs.update(quality=quality, method=4)
     elif fmt == "avif":
@@ -90,7 +175,7 @@ def encode(
     elif fmt == "png":
         kwargs.update(optimize=True)
     else:
-        raise ToolError("unsupported", f"unsupported output format '{fmt}'")
+        raise ToolError("unsupported", f"unsupported output format '{fmt}'", file=file)
     if icc_profile:
         kwargs["icc_profile"] = icc_profile
     if keep_metadata:
@@ -104,7 +189,7 @@ def encode(
         # exif/XMP are only written when passed explicitly, so they are dropped by default
         img.save(buf, _PIL_NAMES[fmt], **kwargs)
     except (OSError, ValueError, KeyError) as exc:
-        raise ToolError("damaged", f"cannot encode image as {fmt}") from exc
+        raise ToolError("damaged", f"cannot encode image as {fmt}", file=file) from exc
     return buf.getvalue()
 
 

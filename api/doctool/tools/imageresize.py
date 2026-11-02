@@ -1,4 +1,3 @@
-import io
 from typing import Literal
 
 from PIL import Image
@@ -6,15 +5,17 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
-    available_formats,
+    check_image,
     encode,
     load_image,
     output_name,
+    preflight,
+    target_format,
     to_target_mode,
+    unique_name,
 )
-from doctool.tools.imageutil import MAX_PIXELS, verify_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES, MAX_PIXELS
 
-_KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 _QUALITY = 90
 
 
@@ -66,27 +67,28 @@ class ImageResizeTool(Tool):
     description = "Change the width and height of a picture."
     Params = ImageResizeParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageResizeParams) -> list[ToolOutput]:
+        preflight(inputs)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:
-            fmt = _target_format(item.data)
+            fmt = target_format(item.data)
             img = load_image(item.data, item.name)
-            icc = img.info.get("icc_profile")
             img = to_target_mode(img, fmt)
+            icc = img.info.get("icc_profile")
             size = _target_size(img.size, params)
             if size[0] * size[1] > MAX_PIXELS:
-                raise ToolError("too_large", f"image '{item.name}' is too large")
+                raise ToolError("too_large", f"image '{item.name}' is too large", file=item.name)
             if size != img.size:
                 img = img.resize(size, Image.Resampling.LANCZOS)
-            data = encode(img, fmt, _QUALITY, False, icc)
-            outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+            data = encode(img, fmt, _QUALITY, False, icc, file=item.name)
+            outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
 
@@ -100,21 +102,6 @@ def _target_size(src: tuple[int, int], p: ImageResizeParams) -> tuple[int, int]:
     return max(1, round(w * scale)), max(1, round(h * scale))
 
 
-def _target_format(data: bytes) -> str:
-    """Keep the input format when we can write it, otherwise PNG."""
-    with Image.open(io.BytesIO(data)) as probe:
-        fmt = _KEEP.get(probe.format or "", "png")
-    return fmt if fmt in available_formats() else "png"
-
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageResizeTool())

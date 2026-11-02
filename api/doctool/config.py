@@ -14,6 +14,11 @@ class Settings(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8000
     # Host headers accepted (anti DNS-rebinding). Ports are ignored.
+    # Image tools: caps against memory/CPU exhaustion (see tools/imagecore.preflight).
+    image_max_pixels: int = 50_000_000  # per image (covers 48-50 MP phone photos)
+    image_task_max_pixels: int = 100_000_000  # sum over the files of one task
+    image_max_files: int = 10
+    image_concurrency: int = 2  # image tasks decoding at the same time
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
@@ -35,6 +40,10 @@ class Settings(BaseModel):
             values["port"] = int(v)
         if v := env.get("DOCTOOL_ALLOWED_HOSTS"):
             values["allowed_hosts"] = [h.strip() for h in v.split(",") if h.strip()]
+        for key in ("image_max_pixels", "image_task_max_pixels", "image_max_files",
+                    "image_concurrency"):
+            if v := env.get(f"DOCTOOL_{key.upper()}"):
+                values[key] = int(v)
         host = env.get("DOCTOOL_HOST", "127.0.0.1")
         if host not in LOCAL_HOSTS and env.get("DOCTOOL_ALLOW_LAN") != "1":
             raise ValueError(

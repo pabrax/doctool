@@ -5,12 +5,15 @@ from pydantic import BaseModel, Field
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
     available_formats,
+    check_image,
     encode,
     load_image,
     output_name,
+    preflight,
     to_target_mode,
+    unique_name,
 )
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES
 
 # Evaluated once at import: an install without AVIF simply does not offer it.
 _TO_INTERNAL = {"jpg": "jpeg"}
@@ -50,37 +53,31 @@ class ImageConvertTool(Tool):
     description = "Change a picture to JPG, PNG or WebP."
     Params = ImageConvertParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageConvertParams) -> list[ToolOutput]:
+        preflight(inputs)
         fmt = _TO_INTERNAL.get(params.format, params.format)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:
             img = load_image(item.data, item.name)
-            icc = img.info.get("icc_profile")
             exif = None
             if params.keep_metadata:
                 own = img.getexif()
                 exif = own.tobytes() if len(own) else None
             img = to_target_mode(img, fmt, params.background)
-            data = encode(img, fmt, params.quality, params.keep_metadata, icc, exif)
-            outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+            icc = img.info.get("icc_profile")
+            data = encode(
+                img, fmt, params.quality, params.keep_metadata, icc, exif, file=item.name
+            )
+            outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageConvertTool())

@@ -24,11 +24,14 @@ class ToolOutput:
 class ToolError(Exception):
     """Expected, user-facing failure. `state` is one of the documented per-file states."""
 
-    def __init__(self, state: str, message: str, retryable: bool = False):
+    def __init__(
+        self, state: str, message: str, retryable: bool = False, *, file: str | None = None
+    ):
         super().__init__(message)
         self.state = state
         self.message = message
         self.retryable = retryable
+        self.file = file  # name of the input file that caused the error, when known
 
 
 class Tool:

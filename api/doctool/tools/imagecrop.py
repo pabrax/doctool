@@ -1,15 +1,21 @@
-import io
 from typing import Literal
 
-from PIL import Image
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
-from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imagecore import (
+    check_image,
+    encode,
+    load_image,
+    output_name,
+    preflight,
+    source_format,
+    to_target_mode,
+    unique_name,
+)
+from doctool.tools.imageutil import IMAGE_MAX_FILES
 
 _RATIOS = {"1-1": (1, 1), "4-3": (4, 3), "3-2": (3, 2), "16-9": (16, 9)}
-_FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 
 
 class ImageCropParams(BaseModel):
@@ -64,41 +70,39 @@ class ImageCropTool(Tool):
     description = "Cut a picture to a shape or a pixel box."
     Params = ImageCropParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageCropParams) -> list[ToolOutput]:
+        preflight(inputs)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:
             img = load_image(item.data, item.name)
-            fmt = _source_format(item.data)
-            icc = img.info.get("icc_profile")
+            fmt = source_format(item.data)
             box = _box_for(img.size, params, item.name)
             img = to_target_mode(img.crop(box), fmt)
-            data = encode(img, fmt, 90, False, icc)
-            outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+            icc = img.info.get("icc_profile")
+            data = encode(img, fmt, 90, False, icc, file=item.name)
+            outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
-
-def _source_format(data: bytes) -> str:
-    with Image.open(io.BytesIO(data)) as img:
-        return _FORMATS.get(img.format or "", "png")
 
 
 def _box_for(size: tuple[int, int], p: ImageCropParams, name: str) -> tuple[int, int, int, int]:
     w, h = size
     if p.mode == "box":
         if p.width is None or p.height is None:
-            raise ToolError("out_of_range", "box mode needs both width and height")
+            raise ToolError("out_of_range", "box mode needs both width and height", file=name)
         if p.x + p.width > w or p.y + p.height > h:
             raise ToolError(
                 "out_of_range",
                 f"the box (x={p.x}, y={p.y}, {p.width}x{p.height}) does not fit inside "
                 f"'{name}', which is {w}x{h} px",
+                file=name,
             )
         return (p.x, p.y, p.x + p.width, p.y + p.height)
     a, b = _RATIOS[p.ratio]
@@ -111,15 +115,6 @@ def _box_for(size: tuple[int, int], p: ImageCropParams, name: str) -> tuple[int,
     left, top = (w - cw) // 2, (h - ch) // 2
     return (left, top, left + cw, top + ch)
 
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageCropTool())

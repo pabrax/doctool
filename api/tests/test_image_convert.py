@@ -152,8 +152,7 @@ def test_single_frame_gif_ok(client):
 # (f) limits and damage -------------------------------------------------------------------
 def test_image_over_max_pixels_rejected(client, monkeypatch):
     data = img_bytes(Image.new("RGB", (50, 50)), "PNG")
-    monkeypatch.setattr("doctool.tools.imageutil.MAX_PIXELS", 100)
-    monkeypatch.setattr("doctool.tools.imagecore.MAX_PIXELS", 100)
+    monkeypatch.setattr("doctool.tools.imageutil.IMAGE_MAX_PIXELS", 100)
     t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"format": "png"}})
     r = client.post(
         f"/api/v1/tasks/{t.json()['id']}/files", files={"file": ("b.png", data, "image/png")}
@@ -165,9 +164,10 @@ def test_load_image_rejects_too_large_and_truncated(monkeypatch):
     from doctool.tools.base import ToolError
 
     data = img_bytes(Image.new("RGB", (50, 50)), "PNG")
-    monkeypatch.setattr("doctool.tools.imagecore.MAX_PIXELS", 100)
-    with pytest.raises(ToolError):
+    monkeypatch.setattr("doctool.tools.imageutil.IMAGE_MAX_PIXELS", 100)
+    with pytest.raises(ToolError) as too_big:
         imagecore.load_image(data, "big.png")
+    assert too_big.value.state == "too_large"
     monkeypatch.undo()
     noisy = img_bytes(Image.effect_noise((200, 200), 80).convert("RGB"), "PNG")
     with pytest.raises(ToolError) as exc:
@@ -193,9 +193,21 @@ def test_available_formats_matches_install():
 
 
 def test_avif_hidden_when_unsupported(monkeypatch):
+    import importlib
+
+    from doctool.tools import imageconvert
+
     real = features.check
     monkeypatch.setattr(features, "check", lambda f: False if f == "avif" else real(f))
     assert "avif" not in imagecore.available_formats()
+    try:
+        importlib.reload(imageconvert)  # the enum is built at import time
+        enum = imageconvert.ImageConvertParams.model_json_schema()["properties"]["format"]["enum"]
+        assert "avif" not in enum
+        assert {"jpg", "png", "webp"} <= set(enum)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(imageconvert)  # restore the real registration
 
 
 def test_avif_roundtrip_when_supported(client):

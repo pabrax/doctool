@@ -2,7 +2,9 @@ import io
 import json
 import logging
 import mimetypes
+import threading
 import zipfile
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from fastapi import (
@@ -33,6 +35,14 @@ from doctool.tools.imageutil import InputError
 
 log = logging.getLogger("doctool")
 router = APIRouter(prefix="/api/v1", tags=["tasks"])
+
+# Decoding big pictures is memory/CPU heavy. At most `image_concurrency` image-tool runs execute
+# at once (the others wait their turn); PDF tools and imagepdf are not throttled. Process-wide
+# (sync endpoints run in a thread pool), sized from the environment at import time.
+_IMAGE_TOOL_IDS = frozenset(
+    {"imageclean", "imagecompress", "imageconvert", "imagecrop", "imageresize"}
+)
+_IMAGE_SLOTS = threading.BoundedSemaphore(Settings.from_env().image_concurrency)
 
 
 def get_secrets(request: Request) -> dict[str, dict]:
@@ -190,7 +200,8 @@ def process_task(
     task.state = "processing"
     db.commit()
     try:
-        outputs = tool.run(inputs, params)
+        with _IMAGE_SLOTS if tool.id in _IMAGE_TOOL_IDS else nullcontext():
+            outputs = tool.run(inputs, params)
     except ToolError as exc:
         task.state = "waiting" if exc.retryable else "error"
         task.error = exc.message
@@ -200,9 +211,10 @@ def process_task(
         for f in ins:
             f.state = exc.state
         db.commit()
-        raise HTTPException(
-            400, detail={"type": "ProcessingError", "state": exc.state, "message": exc.message}
-        ) from exc
+        detail = {"type": "ProcessingError", "state": exc.state, "message": exc.message}
+        if exc.file is not None:
+            detail["file"] = exc.file
+        raise HTTPException(400, detail=detail) from exc
     except Exception as exc:
         log.exception("tool %s crashed", tool.id)
         task.state, task.error = "error", "internal error"

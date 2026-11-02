@@ -1,13 +1,20 @@
 import io
 
-from PIL import Image
 from pydantic import BaseModel
 
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
-from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imagecore import (
+    check_image,
+    encode,
+    load_image,
+    output_name,
+    preflight,
+    source_format,
+    to_target_mode,
+    unique_name,
+)
+from doctool.tools.imageutil import IMAGE_MAX_FILES, open_image
 
-_FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 _QUALITY = {"jpeg": 95, "webp": 95, "avif": 90, "png": 95}
 
 
@@ -22,38 +29,39 @@ class ImageCleanTool(Tool):
     description = "Strips hidden data such as location, camera and date."
     Params = ImageCleanParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageCleanParams) -> list[ToolOutput]:
+        preflight(inputs)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:
             img = load_image(item.data, item.name)
-            fmt, rotated = _source_info(item.data)
-            icc = img.info.get("icc_profile")
+            fmt, rotated = source_format(item.data), _rotated(item.data)
+            icc = img.info.get("icc_profile")  # CMYK stays CMYK on the keep-JPEG path
             data = _keep_jpeg(item.data, icc) if fmt == "jpeg" and not rotated else None
             if data is None:
                 img = to_target_mode(img, fmt)
-                img.info.pop("comment", None)  # Pillow would re-write a JPEG comment from info
-                data = encode(img, fmt, _QUALITY[fmt], False, icc)
-            outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+                icc = img.info.get("icc_profile")
+                data = encode(img, fmt, _QUALITY[fmt], False, icc, file=item.name)
+            outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
 
-def _source_info(data: bytes) -> tuple[str, bool]:
-    """Output format for the source and whether EXIF orientation changes the pixels."""
-    with Image.open(io.BytesIO(data)) as img:
-        return _FORMATS.get(img.format or "", "png"), img.getexif().get(0x0112, 1) != 1
+def _rotated(data: bytes) -> bool:
+    """True when EXIF orientation changes the pixels."""
+    with open_image(data) as img:
+        return img.getexif().get(0x0112, 1) != 1
 
 
 def _keep_jpeg(data: bytes, icc: bytes | None) -> bytes | None:
     """Re-save keeping the original quantization tables; None when Pillow cannot."""
     try:
-        with Image.open(io.BytesIO(data)) as img:
+        with open_image(data) as img:
             img.load()
             kwargs: dict = {"quality": "keep", "optimize": True, "progressive": True,
                             "comment": b""}
@@ -65,15 +73,6 @@ def _keep_jpeg(data: bytes, icc: bytes | None) -> bytes | None:
     except (ValueError, OSError, KeyError):
         return None
 
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageCleanTool())

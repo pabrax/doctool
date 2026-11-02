@@ -1,12 +1,12 @@
-import io
 from typing import Literal
 
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 from pydantic import BaseModel, Field, model_validator
 from reportlab.lib.utils import ImageReader
 
 from doctool.pdfio import inspect_pdf
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, open_pdf, registry, save_pdf
+from doctool.tools.imageutil import open_image
 from doctool.tools.overlay import POSITIONS_9, anchor, hex_to_rgb, stamp_page
 from doctool.tools.pages import parse_pages
 
@@ -75,7 +75,7 @@ class WatermarkTool(Tool):
             inspect_pdf(data)
             return
         try:
-            Image.open(io.BytesIO(data)).verify()
+            open_image(data).verify()
         except (UnidentifiedImageError, OSError, ValueError) as exc:
             raise ValueError("not a PDF or a supported image") from exc
 
@@ -89,7 +89,7 @@ class WatermarkTool(Tool):
             if img_in is None:
                 raise ToolError("no_images", "image mode needs an image as the second file")
             try:
-                image = Image.open(io.BytesIO(img_in.data)).convert("RGBA")
+                image = open_image(img_in.data).convert("RGBA")
             except (UnidentifiedImageError, OSError) as exc:
                 raise ToolError("no_images", "the second file is not a supported image") from exc
         rgb = hex_to_rgb(params.color)
