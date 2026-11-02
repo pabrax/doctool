@@ -28,19 +28,22 @@ audience: end users (local install from the repo, or a web deployment behind a d
 - D8 (designer spec `design/image-tools.md`, defaults chosen by the orchestrator, owner may veto): group colour magenta `#c2257f`/`#f07cc0`, `images` ordered last; preset `max` = best quality with the smallest lossless/near-lossless size (never bigger); exact resize keeps aspect unless an explicit `stretch` option is on; a bad file fails the whole task with the file name in the message (task contract has no per-file result); enum values avoid `fit`, `1:1` and numbers (i18n/generic form limits, spec l.52); crop default mode `ratio`; home subtitle must stop claiming "stays on this computer" for web deployments.
 ## Tasks
 - [x] I1 ui-ux-designer: `design/image-tools.md` (group/colour/icons, options UI for the 5 tools, before/after sizes, states, es/en copy, a11y, phone) - accept: spec written, owner confirms 3 decisions
-- [ ] I2 vertical slice (backend): `api/doctool/tools/imagecore.py` (safe load with orientation, mode handling RGBA/P/CMYK/16-bit, encode per format, format availability, limits) + tool `imageconvert` + tests (bomb, truncated, animated, CMYK, transparency->JPEG, EXIF stripped, AVIF on/off, never-grow n/a) - accept: pytest + ruff green, new tests failed first
-- [ ] I3 tester on I2 (independent): spec gaps and edge cases - accept: `QA: pass`
-- [ ] I4 backend tools `imagecompress` (presets web/email/max), `imageresize` (fit/exact/percent, no_upscale), `imagecrop` (box/aspect), `imageclean` (metadata strip), one implementer task each reusing imagecore - accept per tool: pytest + ruff
-- [ ] I5 web: group `images` (GROUP_ORDER, colour tokens, icons, i18n es/en, Dropzone accept, result facts with size before/after), ADR - accept: vitest + tsc + build + e2e per tool
+- [x] I2 vertical slice (backend): `api/doctool/tools/imagecore.py` (safe load with orientation, mode handling RGBA/P/CMYK/16-bit, encode per format, format availability, limits) + tool `imageconvert` + tests (bomb, truncated, animated, CMYK, transparency->JPEG, EXIF stripped, AVIF on/off, never-grow n/a) - accept: pytest + ruff green, new tests failed first
+- [x] I3 tester (found 3 bugs, fixed in I2b) on I2 (independent): spec gaps and edge cases - accept: `QA: pass`
+- [x] I4 backend tools `imagecompress` (presets web/email/max), `imageresize` (fit/exact/percent, no_upscale), `imagecrop` (box/aspect), `imageclean` (metadata strip), one implementer task each reusing imagecore - accept per tool: pytest + ruff
+- [x] I5 web: group `images` (GROUP_ORDER, colour tokens, icons, i18n es/en, Dropzone accept, result facts with size before/after), ADR - accept: vitest + tsc + build + e2e per tool
 - [ ] I6 qa-auditor gate on the live app (`qa/findings.md`), fixes through implementer/tester/reviewer - accept: `QA-AUDIT: clean`
 - [ ] I7 reviewer (opus) + security-reviewer on `main..feat/image-module`; README/SPEC updated - accept: `VERDICT: pass`, `SECURITY: pass`, Open findings 0
 - D8 correction: preset `max` = strongest compression (designer copy "Maximum (smallest file)"), NOT best quality; presets web q82/2560px, email q72/1600px, max q60/1280px. Exact resize may change proportions (stated in its hint); nothing is ever enlarged.
 ## Tasks added during the work
-- [ ] I2b align `imageconvert` with design/image-tools.md: param `format` (not `target`), values `jpg|png|webp|avif` (not `jpeg`), `quality`, `background`, `keep_metadata`; fix F-b if the tester confirms it; update tests (after I3 report)
-- [ ] I4m merge feat/i4a and feat/i4b into feat/image-module (orchestrator), resolve the `__init__.py` imports, run full suite + ruff
+- [x] I2b align `imageconvert` with design/image-tools.md: param `format` (not `target`), values `jpg|png|webp|avif` (not `jpeg`), `quality`, `background`, `keep_metadata`; fix F-b if the tester confirms it; update tests (after I3 report)
+- [x] I4m merge feat/i4a and feat/i4b into feat/image-module (orchestrator), resolve the `__init__.py` imports, run full suite + ruff
 ## Findings carried to later tasks (orchestrator review of a213280)
 - F-a `ToolError` state `unsupported` is new: add to docs/SPEC.md per-file states (line 33) and to web i18n error keys es/en (`too_large` already exists) in I5.
 - F-b `keep_metadata` likely loses EXIF when `to_target_mode` converts the image (new object has no exif): tester/reviewer to confirm; fix in imagecore if so.
 - F-c Public-facing memory: MAX_PIXELS 100M x RGBA = ~400 MB per decode plus copies; security-reviewer to judge a lower cap for the images tools (e.g. 50M) and a total-per-task cap.
 ## Out of scope
 ffmpeg/video/GIF->WebM, background removal, SVG, batch zip beyond what tasks already do, drag-crop UI (v0.3-b), external binaries, Docker changes.
+
+## Status 2026-11-02
+Merged into feat/image-module: imageconvert (hardened), imagecompress, imageresize, imagecrop, imageclean + web group/i18n/result line. Full pytest 478 passed, vitest 133, ruff clean. Pending: I6 qa-auditor findings, then fixes via implementer/tester/reviewer; I7 reviewer + security-reviewer. Review notes still open: F-d (never-grow returns original incl. GPS), F-e (duplicated helpers), F-f (suite 210 s), home.subtitle wording for web deployments, imageclean 'Removed: ...' report needs a backend field, e2e for images flows not yet written.
