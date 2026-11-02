@@ -2,7 +2,7 @@ import io
 from typing import Literal
 
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
@@ -17,12 +17,40 @@ class ImageCropParams(BaseModel):
         "ratio", description="crop to a centered aspect ratio or to an exact pixel box"
     )
     ratio: Literal["1-1", "4-3", "3-2", "16-9"] = Field(
-        "1-1", description="Keeps the biggest area from the center."
+        "1-1",
+        description="Keeps the biggest area from the center.",
+        json_schema_extra={"show_when": {"mode": ["ratio"]}},
     )
-    x: int = Field(0, ge=0, description="box mode: distance from the left edge (px)")
-    y: int = Field(0, ge=0, description="box mode: distance from the top edge (px)")
-    width: int | None = Field(None, ge=1, description="box mode: width of the box (px)")
-    height: int | None = Field(None, ge=1, description="box mode: height of the box (px)")
+    x: int = Field(
+        0,
+        ge=0,
+        description="box mode: distance from the left edge (px)",
+        json_schema_extra={"show_when": {"mode": ["box"]}},
+    )
+    y: int = Field(
+        0,
+        ge=0,
+        description="box mode: distance from the top edge (px)",
+        json_schema_extra={"show_when": {"mode": ["box"]}},
+    )
+    width: int | None = Field(
+        None,
+        ge=1,
+        description="box mode: width of the box (px)",
+        json_schema_extra={"show_when": {"mode": ["box"]}},
+    )
+    height: int | None = Field(
+        None,
+        ge=1,
+        description="box mode: height of the box (px)",
+        json_schema_extra={"show_when": {"mode": ["box"]}},
+    )
+
+    @model_validator(mode="after")
+    def _box_needs_size(self):
+        if self.mode == "box" and (self.width is None or self.height is None):
+            raise ValueError("width and height are required in box mode")
+        return self
 
 
 class ImageCropTool(Tool):

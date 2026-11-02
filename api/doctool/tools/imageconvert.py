@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field
 
@@ -19,15 +19,26 @@ Target = Literal[  # type: ignore[valid-type]
 ]
 
 
+_LOSSY = [f for f in ("jpg", "webp", "avif") if f in get_args(Target)]
+
+
 class ImageConvertParams(BaseModel):
     format: Target = Field(  # type: ignore[valid-type]
+        "jpg",
         description="JPG works everywhere. WebP is smaller but some old apps cannot open it."
     )
-    quality: int = Field(85, ge=1, le=100, description="lossy quality (JPEG, WebP, AVIF)")
+    quality: int = Field(
+        85,
+        ge=1,
+        le=100,
+        description="lossy quality (JPEG, WebP, AVIF)",
+        json_schema_extra={"show_when": {"format": _LOSSY}},
+    )
     background: str = Field(
         "#ffffff",
         pattern=r"^#[0-9a-fA-F]{6}$",
         description="colour that replaces transparency when the target has no alpha",
+        json_schema_extra={"show_when": {"format": ["jpg"]}},
     )
     keep_metadata: bool = Field(False, description="keep EXIF/GPS data (removed by default)")
 

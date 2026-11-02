@@ -27,7 +27,10 @@ class ImageResizeParams(BaseModel):
         ),
     )
     width: int = Field(
-        1920, ge=1, description="Width in pixels. Pictures are never enlarged, only reduced."
+        1920,
+        ge=1,
+        description="Width in pixels. Pictures are never enlarged, only reduced.",
+        json_schema_extra={"show_when": {"mode": ["fit_box", "exact"]}},
     )
     height: int | None = Field(
         None,
@@ -36,8 +39,15 @@ class ImageResizeParams(BaseModel):
             "Height in pixels. Optional when fitting inside a size; required for an exact "
             "size, where the proportions may change."
         ),
+        json_schema_extra={"show_when": {"mode": ["fit_box", "exact"]}},
     )
-    percent: int = Field(50, ge=1, le=100, description="Percentage of the original size.")
+    percent: int = Field(
+        50,
+        ge=1,
+        le=100,
+        description="Percentage of the original size.",
+        json_schema_extra={"show_when": {"mode": ["percent"]}},
+    )
 
     @model_validator(mode="after")
     def _exact_needs_height(self):
