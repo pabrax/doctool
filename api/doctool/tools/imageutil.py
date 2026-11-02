@@ -1,4 +1,6 @@
 import io
+import struct
+import zlib
 
 from PIL import Image, UnidentifiedImageError
 
@@ -12,5 +14,10 @@ def verify_image(data: bytes) -> None:
             if img.width * img.height > MAX_PIXELS:
                 raise ValueError("image is too large")
             img.verify()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except ValueError:
+        raise
+    except (
+        UnidentifiedImageError, OSError, SyntaxError, EOFError, zlib.error, struct.error,
+        Image.DecompressionBombError,
+    ) as exc:
         raise ValueError("not a supported image") from exc

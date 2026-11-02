@@ -13,6 +13,7 @@ _CHECKS = {"png": "zlib", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _PIL_NAMES = {"png": "PNG", "jpeg": "JPEG", "webp": "WEBP", "avif": "AVIF"}
 _EXTENSIONS = {"png": "png", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _ALPHA_FORMATS = {"png", "webp", "avif"}
+_MAX_SIDE = {"webp": (16383, "WebP"), "jpeg": (65500, "JPEG")}
 
 
 def available_formats() -> list[str]:
@@ -72,7 +73,13 @@ def encode(
     quality: int = 85,
     keep_metadata: bool = False,
     icc_profile: bytes | None = None,
+    exif: bytes | None = None,
 ) -> bytes:
+    limit = _MAX_SIDE.get(fmt)
+    if limit and max(img.size) > limit[0]:
+        raise ToolError(
+            "unsupported", f"{limit[1]} images can be at most {limit[0]} px on each side"
+        )
     kwargs: dict = {}
     if fmt == "jpeg":
         kwargs.update(quality=quality, optimize=True, progressive=True)
@@ -87,9 +94,11 @@ def encode(
     if icc_profile:
         kwargs["icc_profile"] = icc_profile
     if keep_metadata:
-        exif = img.getexif()
-        if len(exif):
-            kwargs["exif"] = exif.tobytes()
+        if exif is None:
+            own = img.getexif()
+            exif = own.tobytes() if len(own) else None
+        if exif:
+            kwargs["exif"] = exif
     buf = io.BytesIO()
     try:
         # exif/XMP are only written when passed explicitly, so they are dropped by default

@@ -32,7 +32,7 @@ def convert(client, files, expect=200, **params):
 
 
 def upload(client, name, data, **params):
-    params.setdefault("target", "png")
+    params.setdefault("format", "png")
     t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": params})
     assert t.status_code == 201, t.text
     return t.json()["id"], client.post(
@@ -41,17 +41,19 @@ def upload(client, name, data, **params):
 
 
 FORMATS = ["PNG", "JPEG", "WEBP"] + (["AVIF"] if features.check("avif") else [])
+TARGETS = ["jpg" if f == "JPEG" else f.lower() for f in FORMATS]
+PIL_FMT = {"jpg": "JPEG"}
 
 
 # C1 ---------------------------------------------------------------------------------------
 @pytest.mark.parametrize("src", FORMATS)
-@pytest.mark.parametrize("target", [f.lower() for f in FORMATS])
+@pytest.mark.parametrize("target", TARGETS)
 def test_c1_all_pairs_pixels_close(client, src, target):
     base = Image.new("RGB", (32, 24), (200, 30, 40))
     data = img_bytes(base, src)
-    out = convert(client, [("a." + src.lower(), data)], target=target)
+    out = convert(client, [("a." + src.lower(), data)], format=target)
     res = decode(out.content)
-    assert res.format == target.upper() and res.size == (32, 24)
+    assert res.format == PIL_FMT.get(target, target.upper()) and res.size == (32, 24)
     r, g, b = res.convert("RGB").getpixel((16, 12))
     assert abs(r - 200) < 20 and abs(g - 30) < 20 and abs(b - 40) < 20
 
@@ -59,16 +61,16 @@ def test_c1_all_pairs_pixels_close(client, src, target):
 # C2 ---------------------------------------------------------------------------------------
 def test_c2_semi_transparent_blend_and_alpha_kept(client):
     data = img_bytes(Image.new("RGBA", (10, 10), (0, 0, 0, 128)), "PNG")
-    j = decode(convert(client, [("t.png", data)], target="jpeg", background="#ffffff").content)
+    j = decode(convert(client, [("t.png", data)], format="jpg", background="#ffffff").content)
     assert 100 < j.convert("RGB").getpixel((5, 5))[0] < 156  # half black over white
     for target in ("png", "webp"):
-        a = decode(convert(client, [("t.png", data)], target=target).content).convert("RGBA")
+        a = decode(convert(client, [("t.png", data)], format=target).content).convert("RGBA")
         assert 118 <= a.getpixel((5, 5))[3] <= 138
 
 
 def test_c2_uppercase_hex_background(client):
     data = img_bytes(Image.new("RGBA", (10, 10), (0, 0, 0, 0)), "PNG")
-    out = convert(client, [("t.png", data)], target="jpeg", background="#00FF00")
+    out = convert(client, [("t.png", data)], format="jpg", background="#00FF00")
     assert decode(out.content).convert("RGB").getpixel((5, 5))[1] > 240
 
 
@@ -91,24 +93,29 @@ def _modes():
 
 
 @pytest.mark.parametrize(("label", "data"), list(_modes()), ids=[m[0] for m in _modes()])
-@pytest.mark.parametrize("target", [f.lower() for f in FORMATS])
+@pytest.mark.parametrize("target", TARGETS)
 def test_c3_modes_convert(client, label, data, target):
-    out = convert(client, [("m.png", data)], target=target)
-    assert decode(out.content).format == target.upper()
+    out = convert(client, [("m.png", data)], format=target)
+    assert decode(out.content).format == PIL_FMT.get(target, target.upper())
 
 
 @pytest.mark.parametrize("size", [(20000, 1), (1, 20000)])
-@pytest.mark.parametrize("target", ["png", "jpeg", "webp"])
+@pytest.mark.parametrize("target", ["png", "jpg", "webp"])
 def test_c3_extreme_aspect(client, size, target):
     data = img_bytes(Image.new("RGB", size, "blue"), "PNG")
-    out = convert(client, [("w.png", data)], target=target)
+    if target == "webp":
+        # WebP is limited to 16383 px per side: clean 400 with a clear message.
+        r = convert(client, [("w.png", data)], expect=400, format=target)
+        assert "16383" in r.text
+        return
+    out = convert(client, [("w.png", data)], format=target)
     assert decode(out.content).size == size
 
 
 def test_c3_webp_over_16383_is_error_not_500(client):
     # WebP cannot encode > 16383 px per side: must be a clean 4xx, never a 500.
     data = img_bytes(Image.new("RGB", (20000, 1), "blue"), "PNG")
-    t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"target": "webp"}})
+    t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"format": "webp"}})
     tid = t.json()["id"]
     client.post(f"/api/v1/tasks/{tid}/files", files={"file": ("w.png", data, "image/png")})
     r = client.post(f"/api/v1/tasks/{tid}/process", json={})
@@ -117,7 +124,7 @@ def test_c3_webp_over_16383_is_error_not_500(client):
 
 def test_c3_jpeg_over_65500_is_error_not_500(client):
     data = img_bytes(Image.new("1", (70000, 1), 1), "PNG")
-    tid, r = upload(client, "w.png", data, target="jpeg")
+    tid, r = upload(client, "w.png", data, format="jpg")
     assert r.status_code == 201
     r = client.post(f"/api/v1/tasks/{tid}/process", json={})
     assert r.status_code in (400, 422), r.text
@@ -138,18 +145,18 @@ def _gps(data):
 
 
 @pytest.mark.parametrize("src", ["JPEG", "PNG", "WEBP"])
-@pytest.mark.parametrize("target", ["jpeg", "png", "webp"])
+@pytest.mark.parametrize("target", ["jpg", "png", "webp"])
 def test_c4_exif_dropped_default_all_pairs(client, src, target):
     data = img_bytes(Image.new("RGB", (16, 16), "gray"), src, exif=_exif())
-    out = convert(client, [("e." + src.lower(), data)], target=target)
+    out = convert(client, [("e." + src.lower(), data)], format=target)
     assert not _gps(out.content)
     assert not Image.open(io.BytesIO(out.content)).getexif().get(0x010F)
 
 
-@pytest.mark.parametrize("target", ["jpeg", "png", "webp"])
+@pytest.mark.parametrize("target", ["jpg", "png", "webp"])
 def test_c4_keep_metadata_all_targets(client, target):
     data = img_bytes(Image.new("RGB", (16, 16), "gray"), "JPEG", exif=_exif())
-    out = convert(client, [("e.jpg", data)], target=target, keep_metadata=True)
+    out = convert(client, [("e.jpg", data)], format=target, keep_metadata=True)
     assert _gps(out.content)
 
 
@@ -157,14 +164,14 @@ def test_c4_keep_metadata_all_targets(client, target):
 def test_c4_keep_metadata_with_alpha_source(client, target):
     # RGBA PNG carrying EXIF -> alpha target
     data = img_bytes(Image.new("RGBA", (16, 16), (1, 2, 3, 200)), "PNG", exif=_exif())
-    out = convert(client, [("e.png", data)], target=target, keep_metadata=True)
+    out = convert(client, [("e.png", data)], format=target, keep_metadata=True)
     assert _gps(out.content)
 
 
 def test_c4_keep_metadata_with_alpha_flattened_to_jpeg(client):
     # F-b: flattening/mode change creates a new image; EXIF must still be kept.
     data = img_bytes(Image.new("RGBA", (16, 16), (1, 2, 3, 200)), "PNG", exif=_exif())
-    out = convert(client, [("e.png", data)], target="jpeg", keep_metadata=True)
+    out = convert(client, [("e.png", data)], format="jpg", keep_metadata=True)
     assert _gps(out.content)
 
 
@@ -172,7 +179,7 @@ def test_c4_keep_metadata_with_cmyk_and_palette(client):
     p = Image.new("P", (8, 8), 1)
     p.putpalette([i % 256 for i in range(768)])
     data = img_bytes(p, "PNG", exif=_exif())
-    out = convert(client, [("e.png", data)], target="jpeg", keep_metadata=True)
+    out = convert(client, [("e.png", data)], format="jpg", keep_metadata=True)
     assert _gps(out.content)
 
 
@@ -182,7 +189,7 @@ def test_c4_orientation_all_values(client, orientation, keep):
     img = Image.new("RGB", (30, 10), "white")
     img.putpixel((0, 0), (255, 0, 0))
     data = img_bytes(img, "JPEG", exif=_exif(orientation), quality=100, subsampling=0)
-    out = convert(client, [("o.jpg", data)], target="png", keep_metadata=keep)
+    out = convert(client, [("o.jpg", data)], format="png", keep_metadata=keep)
     res = decode(out.content)
     assert res.size == ((10, 30) if orientation >= 5 else (30, 10))
     assert res.getexif().get(0x0112) in (None, 1)
@@ -200,8 +207,8 @@ def test_c4_icc_kept_and_dropped_exif(client):
     icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
     for src in ("PNG", "JPEG"):
         data = img_bytes(Image.new("RGB", (8, 8)), src, icc_profile=icc, exif=_exif())
-        for target in ("jpeg", "png", "webp"):
-            out = convert(client, [("i." + src.lower(), data)], target=target)
+        for target in ("jpg", "png", "webp"):
+            out = convert(client, [("i." + src.lower(), data)], format=target)
             assert Image.open(io.BytesIO(out.content)).info.get("icc_profile") == icc
             assert not _gps(out.content)
 
@@ -211,15 +218,15 @@ def test_c4_icc_kept_when_flattening_alpha(client):
 
     icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
     data = img_bytes(Image.new("RGBA", (8, 8), (1, 1, 1, 100)), "PNG", icc_profile=icc)
-    out = convert(client, [("i.png", data)], target="jpeg")
+    out = convert(client, [("i.png", data)], format="jpg")
     assert Image.open(io.BytesIO(out.content)).info.get("icc_profile") == icc
 
 
 def test_c4_xmp_dropped_by_default(client):
     xmp = b"<x:xmpmeta xmlns:x='adobe:ns:meta/'>SECRETGPS</x:xmpmeta>"
     data = img_bytes(Image.new("RGB", (8, 8)), "WEBP", xmp=xmp)
-    for target in ("jpeg", "png", "webp"):
-        out = convert(client, [("x.webp", data)], target=target)
+    for target in ("jpg", "png", "webp"):
+        out = convert(client, [("x.webp", data)], format=target)
         assert b"SECRETGPS" not in out.content
 
 
@@ -229,7 +236,7 @@ def test_c4_png_text_chunks_dropped_by_default(client):
     info = PngInfo()
     info.add_text("Location", "SECRETPLACE")
     data = img_bytes(Image.new("RGB", (8, 8)), "PNG", pnginfo=info)
-    out = convert(client, [("x.png", data)], target="png")
+    out = convert(client, [("x.png", data)], format="png")
     assert b"SECRETPLACE" not in out.content
 
 
@@ -256,7 +263,7 @@ def test_c5_animated_rejected_with_message(client, fmt):
 
 def test_c5_animated_in_batch_fails_whole_task(client):
     ok = img_bytes(Image.new("RGB", (8, 8)), "PNG")
-    r = convert(client, [("ok.png", ok), ("anim.gif", _anim("GIF"))], expect=400, target="png")
+    r = convert(client, [("ok.png", ok), ("anim.gif", _anim("GIF"))], expect=400, format="png")
     assert "animat" in r.json()["detail"]["message"].lower()
 
 
@@ -273,7 +280,8 @@ def bomb_png(w, h):
     parts = [comp.compress(row * 1000) for _ in range(h // 1000)] + [comp.flush()]
     raw = b"".join(parts)
     ihdr = struct.pack(">IIBBBBB", w, h, 1, 0, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", raw) + _chunk(b"IEND", b"")
+    idat = _chunk(b"IDAT", raw)
+    return b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", ihdr) + idat + _chunk(b"IEND", b"")
 
 
 @pytest.mark.parametrize("size", [(20000, 20000), (60000, 60000), (65535, 65535)])
@@ -296,7 +304,7 @@ def test_c6_bomb_jpeg_header_rejected(client):
     i = big.find(b"\xff\xc0")
     assert i > 0
     patched = big[: i + 5] + struct.pack(">HH", 60000, 60000) + big[i + 9 :]
-    _, r = upload(client, "bomb.jpg", patched, target="png")
+    _, r = upload(client, "bomb.jpg", patched, format="png")
     assert r.status_code == 422
 
 
@@ -359,25 +367,25 @@ def test_c6_exif_bomb_huge_declared_not_500(client):
 @pytest.mark.parametrize(
     "params",
     [
-        {"target": "png", "quality": 0},
-        {"target": "png", "quality": 101},
-        {"target": "png", "quality": -1},
-        {"target": "png", "quality": "abc"},
-        {"target": "png", "quality": 85.5},
-        {"target": "png", "quality": None},
-        {"target": "png", "background": "red"},
-        {"target": "png", "background": "#fff"},
-        {"target": "png", "background": "#gggggg"},
-        {"target": "png", "background": "#ffffff\n"},
-        {"target": "png", "background": "#ffffff00"},
-        {"target": "png", "background": 123},
-        {"target": "bmp"},
-        {"target": "PNG"},
-        {"target": ""},
-        {"target": None},
+        {"format": "png", "quality": 0},
+        {"format": "png", "quality": 101},
+        {"format": "png", "quality": -1},
+        {"format": "png", "quality": "abc"},
+        {"format": "png", "quality": 85.5},
+        {"format": "png", "quality": None},
+        {"format": "png", "background": "red"},
+        {"format": "png", "background": "#fff"},
+        {"format": "png", "background": "#gggggg"},
+        {"format": "png", "background": "#ffffff\n"},
+        {"format": "png", "background": "#ffffff00"},
+        {"format": "png", "background": 123},
+        {"format": "bmp"},
+        {"format": "PNG"},
+        {"format": ""},
+        {"format": None},
         {},
-        {"target": "png", "keep_metadata": "maybe"},
-        {"target": "png", "keep_metadata": []},
+        {"format": "png", "keep_metadata": "maybe"},
+        {"format": "png", "keep_metadata": []},
     ],
 )
 def test_c7_invalid_params_422(client, params):
@@ -388,29 +396,29 @@ def test_c7_invalid_params_422(client, params):
 @pytest.mark.parametrize("quality", [1, 100])
 def test_c7_quality_boundaries_ok(client, quality):
     data = img_bytes(Image.new("RGB", (8, 8)), "PNG")
-    for target in ("jpeg", "webp", "png"):
-        convert(client, [("a.png", data)], target=target, quality=quality)
+    for target in ("jpg", "webp", "png"):
+        convert(client, [("a.png", data)], format=target, quality=quality)
 
 
 def test_c7_unknown_param_ignored_or_422(client):
     r = client.post(
-        "/api/v1/tasks", json={"tool": "imageconvert", "params": {"target": "png", "zzz": 1}}
+        "/api/v1/tasks", json={"tool": "imageconvert", "params": {"format": "png", "zzz": 1}}
     )
     assert r.status_code in (201, 422)
 
 
 def test_c7_quality_effect_jpeg(client):
     data = img_bytes(Image.effect_noise((128, 128), 80).convert("RGB"), "PNG")
-    lo = convert(client, [("a.png", data)], target="jpeg", quality=5).content
-    hi = convert(client, [("a.png", data)], target="jpeg", quality=95).content
+    lo = convert(client, [("a.png", data)], format="jpg", quality=5).content
+    hi = convert(client, [("a.png", data)], format="jpg", quality=95).content
     assert len(hi) > len(lo)
 
 
 def test_c7_png_quality_ignored_spec_gap(client):
     # spec gap: PNG ignores quality (documented only by the field description). Checked: no error.
     data = img_bytes(Image.new("RGB", (16, 16), "red"), "PNG")
-    a = convert(client, [("a.png", data)], target="png", quality=1).content
-    b = convert(client, [("a.png", data)], target="png", quality=100).content
+    a = convert(client, [("a.png", data)], format="png", quality=1).content
+    b = convert(client, [("a.png", data)], format="png", quality=100).content
     assert a == b
 
 
@@ -442,7 +450,7 @@ HOSTILE = [
 @pytest.mark.parametrize("name", HOSTILE, ids=[repr(n[:20]) for n in HOSTILE])
 def test_c8_hostile_names(client, name):
     data = img_bytes(Image.new("RGB", (8, 8), "red"), "PNG")
-    t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"target": "jpeg"}})
+    t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"format": "jpg"}})
     tid = t.json()["id"]
     r = client.post(f"/api/v1/tasks/{tid}/files", files={"file": (name, data, "image/png")})
     assert r.status_code == 201, r.text
@@ -464,7 +472,7 @@ def test_c8_hostile_names(client, name):
 def test_c8_hostile_names_multi_zip(client):
     data = img_bytes(Image.new("RGB", (8, 8), "red"), "PNG")
     files = [(n, data) for n in HOSTILE if "\n" not in n]
-    res = convert(client, files, target="webp")
+    res = convert(client, files, format="webp")
     z = zipfile.ZipFile(io.BytesIO(res.content))
     names = z.namelist()
     assert len(names) == len(set(names)) == len(files)
@@ -477,7 +485,7 @@ def test_c9_duplicate_names_unique_and_content_matches(client):
     red = img_bytes(Image.new("RGB", (8, 8), (250, 0, 0)), "PNG")
     blue = img_bytes(Image.new("RGB", (8, 8), (0, 0, 250)), "PNG")
     grn = img_bytes(Image.new("RGB", (8, 8), (0, 250, 0)), "PNG")
-    res = convert(client, [("a.png", red), ("a.png", blue), ("A.PNG", grn)], target="png")
+    res = convert(client, [("a.png", red), ("a.png", blue), ("A.PNG", grn)], format="png")
     outs = outputs(res)
     names = [n for n, _ in outs]
     assert len({n.lower() for n in names}) == 3
@@ -487,7 +495,7 @@ def test_c9_duplicate_names_unique_and_content_matches(client):
 
 def test_c9_dup_collision_with_suffix_name(client):
     d = img_bytes(Image.new("RGB", (8, 8)), "PNG")
-    res = convert(client, [("a.png", d), ("a-2.png", d), ("a.jpg", d)], target="png")
+    res = convert(client, [("a.png", d), ("a-2.png", d), ("a.jpg", d)], format="png")
     names = [n for n, _ in outputs(res)]
     assert len({n.lower() for n in names}) == 3
 
@@ -495,7 +503,7 @@ def test_c9_dup_collision_with_suffix_name(client):
 def test_c9_same_stem_different_ext_library_names(client):
     d = img_bytes(Image.new("RGB", (8, 8)), "PNG")
     res = convert(client, [("a.png", d), ("a.gif", img_bytes(Image.new("P", (8, 8)), "GIF"))],
-                  target="jpeg")
+                  format="jpg")
     assert len({n for n, _ in outputs(res)}) == 2
 
 
@@ -504,7 +512,7 @@ def test_c10_multiple_files_zip_in_order(client):
     files = [
         (f"f{i}.png", img_bytes(Image.new("RGB", (8 + i, 8), "red"), "PNG")) for i in range(5)
     ]
-    res = convert(client, files, target="jpeg")
+    res = convert(client, files, format="jpg")
     assert res.headers["content-type"] == "application/zip"
     got = {n: decode(b).size for n, b in outputs(res)}
     assert len(got) == 5
@@ -512,7 +520,7 @@ def test_c10_multiple_files_zip_in_order(client):
 
 
 def test_c10_zero_files_422(client):
-    t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"target": "png"}})
+    t = client.post("/api/v1/tasks", json={"tool": "imageconvert", "params": {"format": "png"}})
     r = client.post(f"/api/v1/tasks/{t.json()['id']}/process", json={})
     assert r.status_code == 422
 
@@ -562,7 +570,7 @@ def test_c10_failed_upload_leaves_task_usable(small_client):
 def test_gap_odd_extensions(client, name):
     # spec gap: nothing says what odd extensions do; content sniffing is used. Must not 500.
     data = img_bytes(Image.new("RGB", (8, 8)), "PNG")
-    out = convert(client, [(name, data)], target="jpeg")
+    out = convert(client, [(name, data)], format="jpg")
     assert decode(out.content).format == "JPEG"
 
 
@@ -581,5 +589,5 @@ def test_gap_zero_byte_file(client):
 
 def test_gap_uppercase_output_extension_lower(client):
     data = img_bytes(Image.new("RGB", (8, 8)), "PNG")
-    out = convert(client, [("PHOTO.PNG", data)], target="jpeg")
+    out = convert(client, [("PHOTO.PNG", data)], format="jpg")
     assert "PHOTO.jpg" in out.headers["content-disposition"]
