@@ -4,6 +4,7 @@
 from doctool.tools import (  # noqa: F401,I001
     compress,
     imageconvert,
+    imagecrop,
     imagepdf,
     merge,
     metadata,
