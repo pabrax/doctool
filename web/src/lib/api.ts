@@ -8,12 +8,14 @@ export class ApiError extends Error {
     message: string,
     /** Documented per-file state (wrong_password, damaged, out_of_range...) when the API sent one. */
     public state?: string,
+    /** Name of the offending parameter for FastAPI validation lists. */
+    public field?: string,
   ) {
     super(message);
   }
 }
 
-function describe(detail: unknown): { message: string; state?: string } {
+function describe(detail: unknown): { message: string; state?: string; field?: string } {
   if (typeof detail === "string") return { message: detail };
   if (Array.isArray(detail)) {
     const msg = detail
@@ -21,7 +23,9 @@ function describe(detail: unknown): { message: string; state?: string } {
         [d.loc?.join("."), d.msg].filter(Boolean).join(": "),
       )
       .join("; ");
-    return { message: msg || "Invalid request", state: "invalid" };
+    const loc = (detail[0] as { loc?: (string | number)[] } | undefined)?.loc ?? [];
+    const field = [...loc].reverse().find((p): p is string => typeof p === "string" && !["body", "params", "query"].includes(p));
+    return { message: msg || "Invalid request", state: "invalid", field };
   }
   if (detail && typeof detail === "object") {
     const d = detail as { state?: string; message?: string };
@@ -44,8 +48,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       detail = res.statusText;
     }
-    const { message, state } = describe(detail);
-    throw new ApiError(res.status, message, state);
+    const { message, state, field } = describe(detail);
+    // The upload limit answers 413 with a plain string; give it the documented state so it is translated.
+    throw new ApiError(res.status, message, state ?? (res.status === 413 ? "too_large" : undefined), field);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

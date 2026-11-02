@@ -90,6 +90,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     if (removed) undoRef.current?.focus();
   }, [removed]);
 
+  /** Set synchronously on submit so a rapid double click cannot start two tasks before `isPending` renders. */
+  const submitting = useRef(false);
   const run = useMutation<Task, unknown, void>({
     mutationFn: async () => {
       const task = await api.createTask(tool.id, params);
@@ -111,6 +113,9 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
       setSizeBefore(inputs.length === 1 ? (inputs[0].size ?? null) : null);
       setNeedPassword(new Set());
       void qc.invalidateQueries({ queryKey: ["documents"] });
+    },
+    onSettled: () => {
+      submitting.current = false;
     },
     onError: (err) => {
       if (isWrongPassword(err)) {
@@ -141,16 +146,19 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     enabled: !!firstVersionId,
   });
 
+  /** Size of the single output: from the library version (PDFs) or from the task file (images, no version). */
+  const outSize = outVersion ? outVersion.size : outputs.length === 1 && !firstVersionId ? (outputs[0].size ?? null) : null;
+
   /** "x% smaller" for the size-comparing tools; null falls back to the plain size. */
   const sizeLine = (() => {
-    if (!outVersion || !sizeBefore || !SIZE_LINE_TOOLS.includes(tool.id)) return null;
+    if (outSize === null || !sizeBefore || !SIZE_LINE_TOOLS.includes(tool.id)) return null;
     const before = formatBytes(sizeBefore);
-    const after = formatBytes(outVersion.size);
-    const saved = savedPercent(sizeBefore, outVersion.size);
+    const after = formatBytes(outSize);
+    const saved = savedPercent(sizeBefore, outSize);
     if (saved !== null) return t("toolPage.smaller", { pct: saved, before, after });
     if (tool.id === "compress") return t("toolPage.notSmaller", { before, after });
     if (tool.id === "imagecompress") return t("toolPage.imageKept", { after });
-    const grown = tool.id === "imageresize" || tool.id === "imageconvert" ? grownPercent(sizeBefore, outVersion.size) : null;
+    const grown = tool.id === "imageresize" || tool.id === "imageconvert" ? grownPercent(sizeBefore, outSize) : null;
     return grown !== null ? t("toolPage.larger", { pct: grown, before, after }) : null;
   })();
 
@@ -212,6 +220,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           </h2>
           <Dropzone
             accepts={tool.accepts}
+            group={tool.group}
             multiple={!single}
             compact={inputs.length > 0}
             onFiles={addFiles}
@@ -264,7 +273,9 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (canRun) run.mutate();
+              if (!canRun || submitting.current) return;
+              submitting.current = true;
+              run.mutate();
             }}
             className="grid gap-4"
           >
@@ -310,10 +321,10 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                 : outputs[0]?.filename}
               {firstVersionId ? ` — ${t("toolPage.resultSaved")}` : ""}
             </p>
-            {outVersion && outputs.length === 1 && (
+            {outSize !== null && outputs.length === 1 && (
               <p className="tabular mt-1 text-sm font-medium">
                 {sizeLine ??
-                  [outVersion.pages ? t("common.pages", { count: outVersion.pages }) : null, formatBytes(outVersion.size)]
+                  [outVersion?.pages ? t("common.pages", { count: outVersion.pages }) : null, formatBytes(outSize)]
                     .filter(Boolean)
                     .join(" · ")}
               </p>

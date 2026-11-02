@@ -1,7 +1,7 @@
 import { House, Menu, Monitor, Moon, Search, Sun } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, Outlet, Route, Routes } from "react-router-dom";
+import { NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ToolIcon } from "@/components/ToolIcon";
 import { LogoMark } from "@/components/Logo";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -25,8 +25,14 @@ const navLink = ({ isActive }: { isActive: boolean }) =>
 function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { t } = useTranslation();
   const { data: tools = [] } = useTools();
+  const { pathname } = useLocation();
+  const nav = useRef<HTMLElement>(null);
+  // On short screens the active item can sit below the fold of the scrolling sidebar.
+  useEffect(() => {
+    nav.current?.querySelector<HTMLElement>('a[aria-current="page"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [pathname, tools.length]);
   return (
-    <nav aria-label={t("nav.tools")} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
+    <nav ref={nav} aria-label={t("nav.tools")} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
       <NavLink to="/" end className={navLink} onClick={onNavigate}>
         <House aria-hidden className="h-4 w-4" />
         {t("nav.home")}

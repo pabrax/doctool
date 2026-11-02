@@ -63,6 +63,8 @@ export interface TaskFile {
   filename: string;
   sha256: string | null;
   state: string;
+  /** Bytes; present for role "in" and "out" files. */
+  size?: number | null;
 }
 
 export interface Task {

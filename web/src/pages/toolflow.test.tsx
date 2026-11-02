@@ -1,6 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
+import i18n from "@/i18n";
 import { doc, mergeTool, mockFetch, pdfFile, renderApp, rotateTool, version } from "@/test/utils";
 import type { Tool } from "@/lib/types";
 
@@ -130,6 +131,40 @@ describe("tool flow", () => {
       expect(screen.queryByText(/Already well optimized/)).not.toBeInTheDocument();
     });
 
+    describe("outputs without a library version (size from the task file)", () => {
+      const runNoVersion = async (id: string, outSize: number | null, lang = "en") => {
+        await i18n.changeLanguage(lang);
+        const out = { ...outFile, filename: "photo.jpg", version_id: null, size: outSize };
+        toolRoutes({
+          "GET /tools": { body: [imageTool(id), mergeTool] },
+          "POST /tasks": { status: 201, body: task({ tool: id }) },
+          "POST /tasks/t1/process": { body: task({ tool: id, state: "success", files: [out] }) },
+        });
+        renderApp(`/tools/${id}`);
+        const pic = new File([new Uint8Array(4096)], "photo.png", { type: "image/png" });
+        await userEvent.upload(await screen.findByTestId("file-input"), pic);
+        await userEvent.click(screen.getByRole("button", { name: lang === "es" ? /^ejecutar$/i : /^run$/i }));
+      };
+      afterEach(() => i18n.changeLanguage("en"));
+
+      it("imagecompress smaller", async () => {
+        await runNoVersion("imagecompress", 1024);
+        expect(await screen.findByText("75% smaller: 4.0 KB → 1.0 KB")).toBeInTheDocument();
+      });
+      it("imagecompress smaller (es)", async () => {
+        await runNoVersion("imagecompress", 1024, "es");
+        expect(await screen.findByText("75 % más pequeño: 4.0 KB → 1.0 KB")).toBeInTheDocument();
+      });
+      it.each([4096, 5000])("imagecompress equal or greater keeps the kept wording (%i)", async (n) => {
+        await runNoVersion("imagecompress", n);
+        expect(await screen.findByText(/we kept it as it was/)).toBeInTheDocument();
+      });
+      it("imageconvert bigger shows the larger wording", async () => {
+        await runNoVersion("imageconvert", 6144);
+        expect(await screen.findByText("50% larger: 4.0 KB → 6.0 KB. This is normal when converting to PNG.")).toBeInTheDocument();
+      });
+    });
+
     it("crop shows only the plain size (no before/after line)", async () => {
       await runImage("imagecrop", 1024);
       await screen.findByRole("heading", { name: "Done" });
@@ -147,6 +182,17 @@ describe("tool flow", () => {
       await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
       expect(await screen.findByRole("alert")).toHaveTextContent("The crop area is outside the picture.");
     });
+  });
+
+  it("a rapid double click on Run creates only one task", async () => {
+    const calls = toolRoutes();
+    renderApp("/tools/merge");
+    await userEvent.upload(await screen.findByTestId("file-input"), [pdfFile("a.pdf"), pdfFile("b.pdf")]);
+    const run = screen.getByRole("button", { name: /^run$/i });
+    run.click();
+    run.click();
+    expect(await screen.findByRole("heading", { name: "Done" })).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "POST" && c.path === "/tasks")).toHaveLength(1);
   });
 
   it("a next-step button opens that tool with the result preloaded", async () => {
@@ -190,5 +236,18 @@ describe("home", () => {
     const tile = within(launcher).getByRole("link", { name: /Compress PDF/ });
     const groupLabel = within(tile).getByText("Optimize");
     expect(groupLabel.className).not.toMatch(/max-sm:hidden/);
+  });
+});
+
+describe("sidebar", () => {
+  it("scrolls the active tool into view, nearest edge only", async () => {
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    mockFetch({ "GET /tools": { body: [imageTool("imagecrop"), imageTool("imageclean"), mergeTool] }, "GET /documents": { body: [] } });
+    renderApp("/tools/imageclean");
+    await screen.findByRole("heading", { level: 1, name: "Remove photo info" });
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith({ block: "nearest" }));
+    const target = spy.mock.contexts.at(-1) as HTMLElement;
+    expect(target).toHaveAttribute("aria-current", "page");
+    spy.mockRestore();
   });
 });
