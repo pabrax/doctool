@@ -7,7 +7,7 @@ test.describe("desktop sidebar on a short window", () => {
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Tools" });
     await expect(nav.locator("a").nth(3)).toBeVisible();
-    const aside = page.locator("aside");
+    const aside = page.locator("aside:has(nav[aria-label])");
     const box = await aside.boundingBox();
     const inner = await page.evaluate(() => window.innerHeight);
     expect(Math.round(box!.y + box!.height)).toBe(inner);
@@ -19,8 +19,14 @@ test.describe("desktop sidebar on a short window", () => {
   test("C2 last nav link is fully visible after scrolling the nav to its end", async ({ page }) => {
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Tools" });
+    await expect(nav.locator("a").nth(3)).toBeVisible();
+    const res = await page.request.get("/api/v1/tools");
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    const tools = Array.isArray(body) ? body : (body.tools ?? body.items ?? []);
+    expect(tools.length).toBeGreaterThan(3);
+    await expect.poll(() => nav.locator("a").count()).toBeGreaterThan(3);
     const last = nav.locator("a").last();
-    await expect(last).toBeAttached();
     await nav.evaluate((el) => { el.scrollTop = el.scrollHeight; });
     const bottom = await last.evaluate((el) => el.getBoundingClientRect().bottom);
     const inner = await page.evaluate(() => window.innerHeight);
@@ -32,7 +38,7 @@ test.describe("desktop sidebar on a short window", () => {
     await page.goto("/");
     await expect(page.getByRole("navigation", { name: "Tools" }).locator("a").nth(3)).toBeVisible();
     const m = await page.evaluate(() => {
-      const aside = document.querySelector("aside")!;
+      const aside = document.querySelector("aside:has(nav[aria-label])")!;
       const shell = aside.parentElement!;
       const b = aside.getBoundingClientRect();
       return {
@@ -55,8 +61,8 @@ test.describe("desktop sidebar on a short window", () => {
 test("C4 on a phone the aside is hidden until the menu button is clicked", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/");
-  const aside = page.locator("aside");
-  await expect(aside).toBeHidden();
+  const aside = page.locator("aside:has(nav[aria-label])");
+  await expect(aside).not.toBeVisible();
   await page.getByRole("button", { name: "Menu" }).click();
   await expect(aside).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Tools" })).toBeVisible();

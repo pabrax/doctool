@@ -76,7 +76,7 @@ function Shell() {
       </a>
       <aside
         className={cn(
-          "w-full shrink-0 border-b border-border bg-surface md:sticky md:top-0 md:flex md:h-screen md:h-dvh md:flex-col md:w-64 md:border-b-0 md:border-r",
+          "w-full shrink-0 border-b border-border bg-surface md:sticky md:top-0 md:flex md:h-screen md:supports-[height:100dvh]:h-dvh md:flex-col md:w-64 md:border-b-0 md:border-r",
           open ? "block" : "hidden",
         )}
       >
