@@ -154,8 +154,9 @@ def test_imagepdf_keeps_the_hard_cap(client):
 
 
 def test_eleven_files_rejected(client):
-    r = process(client, "imageclean", {}, [(f"{i}.png", png()) for i in range(11)], 422)
-    assert "10" in r.text
+    tid = new_task(client, "imageclean")
+    codes = [upload(client, tid, f"{i}.png", png()).status_code for i in range(11)]
+    assert codes == [201] * 10 + [422]
 
 
 @pytest.mark.parametrize("tool", list(IMAGE_TOOLS))
@@ -266,9 +267,12 @@ def test_compress_png_text_chunks_count_as_private(client):
     info = PngInfo()
     info.add_text("Comment", "secret-text")
     buf = io.BytesIO()
-    Image.new("RGB", (4, 4), "red").save(buf, "PNG", pnginfo=info)
+    Image.effect_noise((64, 64), 60).convert("RGB").save(
+        buf, "PNG", pnginfo=info, optimize=True, compress_level=9
+    )
+    assert b"secret-text" in buf.getvalue()
     out = run_one(client, "imagecompress", {}, "p.png", buf.getvalue(), "image/png")
-    assert b"secret-text" not in out
+    assert b"secret-text" not in out and out != buf.getvalue()
 
 
 @pytest.mark.parametrize(

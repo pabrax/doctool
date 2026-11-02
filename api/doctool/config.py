@@ -1,8 +1,10 @@
+import logging
 import os
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+log = logging.getLogger("doctool")
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
@@ -19,6 +21,7 @@ class Settings(BaseModel):
     image_task_max_pixels: int = 100_000_000  # sum over the files of one task
     image_max_files: int = 10
     image_concurrency: int = 2  # image tasks decoding at the same time
+    image_slot_wait_seconds: float = 2.0  # how long a request waits for a free image slot
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
@@ -42,8 +45,8 @@ class Settings(BaseModel):
             values["allowed_hosts"] = [h.strip() for h in v.split(",") if h.strip()]
         for key in ("image_max_pixels", "image_task_max_pixels", "image_max_files",
                     "image_concurrency"):
-            if v := env.get(f"DOCTOOL_{key.upper()}"):
-                values[key] = int(v)
+            _positive(values, env, key, int)
+        _positive(values, env, "image_slot_wait_seconds", float)
         host = env.get("DOCTOOL_HOST", "127.0.0.1")
         if host not in LOCAL_HOSTS and env.get("DOCTOOL_ALLOW_LAN") != "1":
             raise ValueError(
@@ -58,3 +61,20 @@ class Settings(BaseModel):
         elif (default_web / "index.html").is_file():
             values["web_dir"] = default_web
         return cls(**values)
+
+
+def _positive(values: dict, env, key: str, kind) -> None:
+    """Read DOCTOOL_<KEY>; a missing, non-numeric or < 1 (wait: <= 0) value keeps the default."""
+    name = f"DOCTOOL_{key.upper()}"
+    raw = env.get(name)
+    if not raw:
+        return
+    try:
+        value = kind(raw)
+        ok = value > 0 and (kind is float or value >= 1) and value == value
+    except ValueError:
+        ok = False
+    if ok and value != float("inf"):
+        values[key] = value
+    else:
+        log.warning("ignoring invalid %s=%r; using the default", name, raw)

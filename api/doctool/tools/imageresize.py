@@ -3,6 +3,7 @@ from typing import Literal
 from PIL import Image
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
+from doctool.tools import imageutil
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
     check_image,
@@ -14,7 +15,7 @@ from doctool.tools.imagecore import (
     to_target_mode,
     unique_name,
 )
-from doctool.tools.imageutil import IMAGE_MAX_FILES, MAX_PIXELS
+from doctool.tools.imageutil import IMAGE_MAX_FILES
 
 _QUALITY = 90
 
@@ -83,7 +84,7 @@ class ImageResizeTool(Tool):
             img = to_target_mode(img, fmt)
             icc = img.info.get("icc_profile")
             size = _target_size(img.size, params)
-            if size[0] * size[1] > MAX_PIXELS:
+            if size[0] * size[1] > imageutil.IMAGE_MAX_PIXELS:
                 raise ToolError("too_large", f"image '{item.name}' is too large", file=item.name)
             if size != img.size:
                 img = img.resize(size, Image.Resampling.LANCZOS)

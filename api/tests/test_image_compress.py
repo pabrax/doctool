@@ -120,13 +120,12 @@ def test_never_grow_returns_original_bytes_and_name(client):
     assert "Tiny One.png" in out.headers["content-disposition"]
 
 
-def test_never_grow_keeps_original_name_even_with_other_format(client):
+def test_gif_is_never_returned_as_is(client):
+    # GIF is converted to PNG, so the original bytes are never handed back (they may hold XMP)
     src = img_bytes(Image.new("P", (4, 4), 1), "GIF")
     out = compress(client, [("tiny.gif", src, "image/gif")])
-    if out.content == src:
-        assert "tiny.gif" in out.headers["content-disposition"]
-    else:
-        assert len(out.content) < len(src)
+    assert out.content != src and out.content[1:4] == b"PNG"
+    assert "tiny.png" in out.headers["content-disposition"]
 
 
 def test_transparent_png_stays_transparent(client):

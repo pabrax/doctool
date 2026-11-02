@@ -174,10 +174,11 @@ def test_corrupt_rejected_at_upload(client):
 
 
 def test_output_pixels_hard_cap(monkeypatch):
-    from doctool.tools import imageresize
+    from doctool.tools import imageresize, imageutil
     from doctool.tools.base import ToolInput
 
-    monkeypatch.setattr(imageresize, "MAX_PIXELS", 100)
+    monkeypatch.setattr(imageutil, "IMAGE_MAX_PIXELS", 100)
+    monkeypatch.setattr(imageresize, "preflight", lambda inputs: None)
     tool = imageresize.ImageResizeTool()
     with pytest.raises(ToolError):
         tool.run([ToolInput("a.png", png((50, 50)))], imageresize.ImageResizeParams())
