@@ -32,8 +32,8 @@ audience: end users (local install from the repo, or a web deployment behind a d
 - [x] I3 tester (found 3 bugs, fixed in I2b) on I2 (independent): spec gaps and edge cases - accept: `QA: pass`
 - [x] I4 backend tools `imagecompress` (presets web/email/max), `imageresize` (fit/exact/percent, no_upscale), `imagecrop` (box/aspect), `imageclean` (metadata strip), one implementer task each reusing imagecore - accept per tool: pytest + ruff
 - [x] I5 web: group `images` (GROUP_ORDER, colour tokens, icons, i18n es/en, Dropzone accept, result facts with size before/after), ADR - accept: vitest + tsc + build + e2e per tool
-- [ ] I6 qa-auditor gate on the live app (`qa/findings.md`), fixes through implementer/tester/reviewer - accept: `QA-AUDIT: clean`
-- [ ] I7 reviewer (opus) + security-reviewer on `main..feat/image-module`; README/SPEC updated - accept: `VERDICT: pass`, `SECURITY: pass`, Open findings 0
+- [x] I6 qa-auditor gate on the live app (`qa/findings.md`), fixes through implementer/tester/reviewer - accept: `QA-AUDIT: clean`
+- [x] I7 reviewer (opus) + security-reviewer on `main..feat/image-module`; README/SPEC updated - accept: `VERDICT: pass`, `SECURITY: pass`, Open findings 0
 - D8 correction: preset `max` = strongest compression (designer copy "Maximum (smallest file)"), NOT best quality; presets web q82/2560px, email q72/1600px, max q60/1280px. Exact resize may change proportions (stated in its hint); nothing is ever enlarged.
 ## Tasks added during the work
 - [x] I2b align `imageconvert` with design/image-tools.md: param `format` (not `target`), values `jpg|png|webp|avif` (not `jpeg`), `quality`, `background`, `keep_metadata`; fix F-b if the tester confirms it; update tests (after I3 report)
@@ -47,3 +47,7 @@ ffmpeg/video/GIF->WebM, background removal, SVG, batch zip beyond what tasks alr
 
 ## Status 2026-11-02
 Merged into feat/image-module: imageconvert (hardened), imagecompress, imageresize, imagecrop, imageclean + web group/i18n/result line. Full pytest 478 passed, vitest 133, ruff clean. Pending: I6 qa-auditor findings, then fixes via implementer/tester/reviewer; I7 reviewer + security-reviewer. Review notes still open: F-d (never-grow returns original incl. GPS), F-e (duplicated helpers), F-f (suite 210 s), home.subtitle wording for web deployments, imageclean 'Removed: ...' report needs a backend field, e2e for images flows not yet written.
+
+## Final status 2026-11-02 (branch head 75d4e34)
+Verified: pytest 624 (last full run at d411c6d; later commits re-ran 78 targeted tests), vitest 165, Playwright 33/33, ruff and typecheck clean. Independent verdicts on the last candidates: security-reviewer `SECURITY: pass` (0 open, candidate e36d71d), reviewer `VERDICT: pass` (0 open, candidate d411c6d). qa-auditor: 2 sweeps, 11 + 3 findings, all fixed except backlog (IMG-08 focus after result, R2-03 imageclean comparison line) and owner decision IMG-10 (home subtitle). Known residuals (non-blocking): multi-frame MPO phone photos are rejected as animated; AVIF metadata scan is conservative and untested with real AVIF Exif; imageclean lacks a 'what was removed' report (needs a backend field); the test suite takes ~4.5 min.
+Ready for the owner to merge feat/image-module into main (not pushed anywhere).
