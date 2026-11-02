@@ -11,6 +11,7 @@ from doctool.tools.imagecore import (
     output_name,
     preflight,
     to_target_mode,
+    unique_name,
 )
 from doctool.tools.imageutil import IMAGE_MAX_FILES
 
@@ -65,27 +66,18 @@ class ImageConvertTool(Tool):
         outs: list[ToolOutput] = []
         for item in inputs:
             img = load_image(item.data, item.name)
-            icc = img.info.get("icc_profile")
             exif = None
             if params.keep_metadata:
                 own = img.getexif()
                 exif = own.tobytes() if len(own) else None
             img = to_target_mode(img, fmt, params.background)
+            icc = img.info.get("icc_profile")
             data = encode(
                 img, fmt, params.quality, params.keep_metadata, icc, exif, file=item.name
             )
-            outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+            outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageConvertTool())

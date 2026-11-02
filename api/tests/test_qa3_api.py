@@ -226,3 +226,73 @@ def test_image_concurrency_is_bounded(client, monkeypatch):
         t.join()
     assert codes == [200] * 5
     assert state["max"] == 2
+
+
+# S3 / S5 --------------------------------------------------------------------------------
+def noisy_jpeg(quality=20, **kw) -> bytes:
+    buf = io.BytesIO()
+    Image.effect_noise((64, 64), 60).convert("RGB").save(buf, "JPEG", quality=quality, **kw)
+    return buf.getvalue()
+
+
+def gps_exif() -> Image.Exif:
+    exif = Image.Exif()
+    exif[0x010F] = "TestMaker"
+    exif.get_ifd(0x8825)[1] = "N"
+    return exif
+
+
+def run_one(client, tool, params, name, data, mime="image/jpeg"):
+    from tests.helpers import run_tool
+
+    return run_tool(client, tool, params, [(name, data, mime)]).content
+
+
+def test_compress_never_grow_fallback_strips_private_metadata(client):
+    src = noisy_jpeg(20, exif=gps_exif().tobytes(), comment=b"secret-comment")
+    out = run_one(client, "imagecompress", {"preset": "max"}, "p.jpg", src)
+    assert b"Exif" not in out and b"TestMaker" not in out and b"secret-comment" not in out
+    assert not Image.open(io.BytesIO(out)).getexif()
+
+
+def test_compress_never_grow_keeps_original_without_metadata(client):
+    src = noisy_jpeg(20)
+    assert run_one(client, "imagecompress", {"preset": "max"}, "p.jpg", src) == src
+
+
+def test_compress_png_text_chunks_count_as_private(client):
+    from PIL.PngImagePlugin import PngInfo
+
+    info = PngInfo()
+    info.add_text("Comment", "secret-text")
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), "red").save(buf, "PNG", pnginfo=info)
+    out = run_one(client, "imagecompress", {}, "p.png", buf.getvalue(), "image/png")
+    assert b"secret-text" not in out
+
+
+@pytest.mark.parametrize(
+    ("tool", "params"),
+    [
+        ("imageconvert", {"format": "jpg"}),
+        ("imagecrop", {}),
+        ("imageresize", {"width": 32}),
+        ("imagecompress", {"preset": "max"}),
+    ],
+)
+def test_jpeg_comment_does_not_survive(client, tool, params):
+    src = noisy_jpeg(95, comment=b"secret-comment")
+    out = run_one(client, tool, params, "p.jpg", src)
+    assert b"secret-comment" not in out
+
+
+def test_cmyk_icc_profile_dropped_on_rgb_conversion(client):
+    from PIL import ImageCms
+
+    icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    buf = io.BytesIO()
+    Image.new("CMYK", (16, 16), (10, 20, 30, 40)).save(buf, "JPEG", icc_profile=icc)
+    assert Image.open(io.BytesIO(buf.getvalue())).info.get("icc_profile")
+    out = run_one(client, "imageconvert", {"format": "png"}, "c.jpg", buf.getvalue())
+    img = Image.open(io.BytesIO(out))
+    assert img.mode == "RGB" and "icc_profile" not in img.info

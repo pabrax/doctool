@@ -193,9 +193,21 @@ def test_available_formats_matches_install():
 
 
 def test_avif_hidden_when_unsupported(monkeypatch):
+    import importlib
+
+    from doctool.tools import imageconvert
+
     real = features.check
     monkeypatch.setattr(features, "check", lambda f: False if f == "avif" else real(f))
     assert "avif" not in imagecore.available_formats()
+    try:
+        importlib.reload(imageconvert)  # the enum is built at import time
+        enum = imageconvert.ImageConvertParams.model_json_schema()["properties"]["format"]["enum"]
+        assert "avif" not in enum
+        assert {"jpg", "png", "webp"} <= set(enum)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(imageconvert)  # restore the real registration
 
 
 def test_avif_roundtrip_when_supported(client):

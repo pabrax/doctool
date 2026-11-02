@@ -5,19 +5,20 @@ from pydantic import BaseModel, Field
 
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
-    available_formats,
     check_image,
     encode,
+    has_private_metadata,
     load_image,
     output_name,
     preflight,
+    target_format,
     to_target_mode,
+    unique_name,
 )
-from doctool.tools.imageutil import IMAGE_MAX_FILES, open_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES
 
 # preset -> (quality, longest side cap in px)
 _PRESETS = {"web": (82, 2560), "email": (72, 1600), "max": (60, 1280)}
-_KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 
 
 class ImageCompressParams(BaseModel):
@@ -45,38 +46,25 @@ class ImageCompressTool(Tool):
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:
-            fmt = _target_format(item.data)
+            fmt = target_format(item.data)
             img = load_image(item.data, item.name)
-            icc = img.info.get("icc_profile")
             img = to_target_mode(img, fmt)
+            icc = img.info.get("icc_profile")
             longest = max(img.size)
             if longest > cap:  # only ever shrink
                 scale = cap / longest
                 size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
                 img = img.resize(size, Image.Resampling.LANCZOS)
             data = encode(img, fmt, quality, False, icc, file=item.name)
-            if len(data) >= len(item.data):  # never grow: hand back the original untouched
-                outs.append(ToolOutput(_unique(item.name, used), item.data))
+            if len(data) >= len(item.data) and not has_private_metadata(item.data):
+                # never grow: hand back the original untouched. A file with private metadata
+                # (EXIF/GPS, XMP, comments) gets the metadata-free copy even when it is larger.
+                outs.append(ToolOutput(unique_name(item.name, used), item.data))
             else:
-                outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+                outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
 
-def _target_format(data: bytes) -> str:
-    """Keep the input format when we can write it, otherwise PNG."""
-    with open_image(data) as probe:
-        fmt = _KEEP.get(probe.format or "", "png")
-    return fmt if fmt in available_formats() else "png"
-
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageCompressTool())

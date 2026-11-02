@@ -14,12 +14,48 @@ _CHECKS = {"png": "zlib", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _PIL_NAMES = {"png": "PNG", "jpeg": "JPEG", "webp": "WEBP", "avif": "AVIF"}
 _EXTENSIONS = {"png": "png", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _ALPHA_FORMATS = {"png", "webp", "avif"}
+_KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
+_PRIVATE_INFO = ("exif", "xmp", "XML:com.adobe.xmp", "comment", "photoshop")
 _MAX_SIDE = {"webp": (16383, "WebP"), "jpeg": (65500, "JPEG")}
 
 
 def available_formats() -> list[str]:
     """Output formats this install can encode; AVIF only when Pillow reports support."""
     return [fmt for fmt, feature in _CHECKS.items() if features.check(feature)]
+
+
+def unique_name(name: str, used: set[str]) -> str:
+    """`name`, or `stem-2.ext`, `stem-3.ext`... when a case-insensitive twin is already used."""
+    stem, dot, ext = name.rpartition(".")
+    candidate, n = name, 1
+    while candidate.lower() in used:
+        n += 1
+        candidate = f"{stem}-{n}{dot}{ext}"
+    used.add(candidate.lower())
+    return candidate
+
+
+def source_format(data: bytes) -> str:
+    """Our name for the input's own format (MPO counts as jpeg); png when unknown."""
+    with open_image(data) as img:
+        return _KEEP.get(img.format or "", "png")
+
+
+def target_format(data: bytes) -> str:
+    """Keep the input format when we can write it, otherwise PNG."""
+    fmt = source_format(data)
+    return fmt if fmt in available_formats() else "png"
+
+
+def has_private_metadata(data: bytes) -> bool:
+    """True when the file carries EXIF, XMP, a JPEG/GIF comment or PNG text chunks."""
+    with open_image(data) as img:
+        img.load()
+        return bool(
+            any(img.info.get(k) for k in _PRIVATE_INFO)
+            or getattr(img, "text", None)
+            or len(img.getexif())
+        )
 
 
 def check_image(data: bytes) -> None:
@@ -103,7 +139,10 @@ def to_target_mode(img: Image.Image, fmt: str, background: str = "#ffffff") -> I
         return flat
     if img.mode == "L" or (img.mode == "RGB"):
         return img
-    return img.convert("RGB")
+    converted = img.convert("RGB")
+    if img.mode == "CMYK":  # a CMYK profile does not describe the RGB pixels
+        converted.info.pop("icc_profile", None)
+    return converted
 
 
 def _from_16bit(img: Image.Image) -> Image.Image:
@@ -127,7 +166,8 @@ def encode(
         )
     kwargs: dict = {}
     if fmt == "jpeg":
-        kwargs.update(quality=quality, optimize=True, progressive=True)
+        # comment=b"" stops Pillow re-writing a comment it kept in img.info
+        kwargs.update(quality=quality, optimize=True, progressive=True, comment=b"")
     elif fmt == "webp":
         kwargs.update(quality=quality, method=4)
     elif fmt == "avif":

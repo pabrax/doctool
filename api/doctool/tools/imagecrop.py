@@ -9,12 +9,13 @@ from doctool.tools.imagecore import (
     load_image,
     output_name,
     preflight,
+    source_format,
     to_target_mode,
+    unique_name,
 )
-from doctool.tools.imageutil import IMAGE_MAX_FILES, open_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES
 
 _RATIOS = {"1-1": (1, 1), "4-3": (4, 3), "3-2": (3, 2), "16-9": (16, 9)}
-_FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 
 
 class ImageCropParams(BaseModel):
@@ -81,18 +82,14 @@ class ImageCropTool(Tool):
         outs: list[ToolOutput] = []
         for item in inputs:
             img = load_image(item.data, item.name)
-            fmt = _source_format(item.data)
-            icc = img.info.get("icc_profile")
+            fmt = source_format(item.data)
             box = _box_for(img.size, params, item.name)
             img = to_target_mode(img.crop(box), fmt)
+            icc = img.info.get("icc_profile")
             data = encode(img, fmt, 90, False, icc, file=item.name)
-            outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
+            outs.append(ToolOutput(unique_name(output_name(item.name, fmt), used), data))
         return outs
 
-
-def _source_format(data: bytes) -> str:
-    with open_image(data) as img:
-        return _FORMATS.get(img.format or "", "png")
 
 
 def _box_for(size: tuple[int, int], p: ImageCropParams, name: str) -> tuple[int, int, int, int]:
@@ -118,15 +115,6 @@ def _box_for(size: tuple[int, int], p: ImageCropParams, name: str) -> tuple[int,
     left, top = (w - cw) // 2, (h - ch) // 2
     return (left, top, left + cw, top + ch)
 
-
-def _unique(name: str, used: set[str]) -> str:
-    stem, dot, ext = name.rpartition(".")
-    candidate, n = name, 1
-    while candidate.lower() in used:
-        n += 1
-        candidate = f"{stem}-{n}{dot}{ext}"
-    used.add(candidate.lower())
-    return candidate
 
 
 registry.register(ImageCropTool())
