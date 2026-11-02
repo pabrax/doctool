@@ -356,8 +356,10 @@ describe("max_files", () => {
     });
     renderApp("/tools/imageconvert");
     await userEvent.upload(await screen.findByTestId("file-input"), pics(2));
+    await userEvent.selectOptions(screen.getByRole("combobox"), "png");
     await userEvent.click(screen.getByRole("button", { name: runName }));
     expect(await screen.findByRole("alert")).toHaveTextContent(text);
+    expect(screen.getByRole("combobox")).toHaveValue("png"); // the option survives the failed run
     expect(screen.getByRole("button", { name: runName })).toBeEnabled();
     expect(screen.getByText("p1.png")).toBeInTheDocument();
     expect(screen.getByText("p2.png")).toBeInTheDocument();
