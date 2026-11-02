@@ -237,6 +237,37 @@ describe("tool flow", () => {
       await i18n.changeLanguage("en");
     });
 
+    it.each([
+      ["en", /^run$/i, "anim.gif: This picture cannot be processed"],
+      ["es", /^ejecutar$/i, "anim.gif: Esta imagen no se puede procesar"],
+    ])("prefixes a processing error with the file name from the API (%s)", async (lang, runName, text) => {
+      await i18n.changeLanguage(lang);
+      toolRoutes({
+        "GET /tools": { body: [imageTool("imageconvert"), mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+        "POST /tasks/t1/process": { status: 400, body: { detail: { type: "ProcessingError", state: "unsupported", file: "anim.gif", message: "x" } } },
+        "DELETE /tasks/t1": { status: 204 },
+      });
+      renderApp("/tools/imageconvert");
+      await userEvent.upload(await screen.findByTestId("file-input"), new File(["x"], "anim.gif", { type: "image/gif" }));
+      await userEvent.click(screen.getByRole("button", { name: runName }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(text);
+      await i18n.changeLanguage("en");
+    });
+
+    it("leaves a processing error without file unprefixed", async () => {
+      toolRoutes({
+        "GET /tools": { body: [imageTool("imageconvert"), mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+        "POST /tasks/t1/process": { status: 400, body: { detail: { type: "ProcessingError", state: "unsupported", message: "x" } } },
+        "DELETE /tasks/t1": { status: 204 },
+      });
+      renderApp("/tools/imageconvert");
+      await userEvent.upload(await screen.findByTestId("file-input"), new File(["x"], "anim.gif", { type: "image/gif" }));
+      await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+      expect((await screen.findByRole("alert")).textContent).toMatch(/^This picture cannot be processed/);
+    });
+
     it("maps out_of_range to the crop-area message for image tools", async () => {
       toolRoutes({
         "GET /tools": { body: [imageTool("imagecrop"), mergeTool] },
