@@ -34,6 +34,10 @@ audience: end users (local install from the repo, or a web deployment behind a d
 - [ ] I5 web: group `images` (GROUP_ORDER, colour tokens, icons, i18n es/en, Dropzone accept, result facts with size before/after), ADR - accept: vitest + tsc + build + e2e per tool
 - [ ] I6 qa-auditor gate on the live app (`qa/findings.md`), fixes through implementer/tester/reviewer - accept: `QA-AUDIT: clean`
 - [ ] I7 reviewer (opus) + security-reviewer on `main..feat/image-module`; README/SPEC updated - accept: `VERDICT: pass`, `SECURITY: pass`, Open findings 0
+- D8 correction: preset `max` = strongest compression (designer copy "Maximum (smallest file)"), NOT best quality; presets web q82/2560px, email q72/1600px, max q60/1280px. Exact resize may change proportions (stated in its hint); nothing is ever enlarged.
+## Tasks added during the work
+- [ ] I2b align `imageconvert` with design/image-tools.md: param `format` (not `target`), values `jpg|png|webp|avif` (not `jpeg`), `quality`, `background`, `keep_metadata`; fix F-b if the tester confirms it; update tests (after I3 report)
+- [ ] I4m merge feat/i4a and feat/i4b into feat/image-module (orchestrator), resolve the `__init__.py` imports, run full suite + ruff
 ## Findings carried to later tasks (orchestrator review of a213280)
 - F-a `ToolError` state `unsupported` is new: add to docs/SPEC.md per-file states (line 33) and to web i18n error keys es/en (`too_large` already exists) in I5.
 - F-b `keep_metadata` likely loses EXIF when `to_target_mode` converts the image (new object has no exif): tester/reviewer to confirm; fix in imagecore if so.
