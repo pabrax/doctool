@@ -159,6 +159,20 @@ describe("tool flow", () => {
         await runNoVersion("imagecompress", n);
         expect(await screen.findByText(/we kept it as it was/)).toBeInTheDocument();
       });
+      it("imagecompress 0.4% saved is truthfully 'slightly smaller', never 'kept as it was'", async () => {
+        await runNoVersion("imagecompress", 4080);
+        expect(await screen.findByText("Slightly smaller: 4.0 KB → 4.0 KB")).toBeInTheDocument();
+        expect(screen.queryByText(/kept it as it was/)).not.toBeInTheDocument();
+      });
+      it("imagecompress 0.4% saved (es)", async () => {
+        await runNoVersion("imagecompress", 4080, "es");
+        expect(await screen.findByText("Un poco más pequeño: 4.0 KB → 4.0 KB")).toBeInTheDocument();
+      });
+      it("imagecompress 62% saved shows the percentage", async () => {
+        await runNoVersion("imagecompress", 1556);
+        expect(await screen.findByText("62% smaller: 4.0 KB → 1.5 KB")).toBeInTheDocument();
+        expect(screen.queryByText(/kept it as it was|Slightly/)).not.toBeInTheDocument();
+      });
       it("imageconvert bigger shows the larger wording", async () => {
         await runNoVersion("imageconvert", 6144);
         expect(await screen.findByText("50% larger: 4.0 KB → 6.0 KB. This is normal when converting to PNG.")).toBeInTheDocument();
@@ -235,6 +249,37 @@ describe("tool flow", () => {
         "bad.png: Este archivo no es una imagen que podamos leer. Prueba con JPG, PNG o WebP.",
       );
       await i18n.changeLanguage("en");
+    });
+
+    it.each([
+      ["en", /^run$/i, "anim.gif: This picture cannot be processed"],
+      ["es", /^ejecutar$/i, "anim.gif: Esta imagen no se puede procesar"],
+    ])("prefixes a processing error with the file name from the API (%s)", async (lang, runName, text) => {
+      await i18n.changeLanguage(lang);
+      toolRoutes({
+        "GET /tools": { body: [imageTool("imageconvert"), mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+        "POST /tasks/t1/process": { status: 400, body: { detail: { type: "ProcessingError", state: "unsupported", file: "anim.gif", message: "x" } } },
+        "DELETE /tasks/t1": { status: 204 },
+      });
+      renderApp("/tools/imageconvert");
+      await userEvent.upload(await screen.findByTestId("file-input"), new File(["x"], "anim.gif", { type: "image/gif" }));
+      await userEvent.click(screen.getByRole("button", { name: runName }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(text);
+      await i18n.changeLanguage("en");
+    });
+
+    it("leaves a processing error without file unprefixed", async () => {
+      toolRoutes({
+        "GET /tools": { body: [imageTool("imageconvert"), mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+        "POST /tasks/t1/process": { status: 400, body: { detail: { type: "ProcessingError", state: "unsupported", message: "x" } } },
+        "DELETE /tasks/t1": { status: 204 },
+      });
+      renderApp("/tools/imageconvert");
+      await userEvent.upload(await screen.findByTestId("file-input"), new File(["x"], "anim.gif", { type: "image/gif" }));
+      await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+      expect((await screen.findByRole("alert")).textContent).toMatch(/^This picture cannot be processed/);
     });
 
     it("maps out_of_range to the crop-area message for image tools", async () => {

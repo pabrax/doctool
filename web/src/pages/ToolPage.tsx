@@ -164,7 +164,10 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     const saved = savedPercent(sizeBefore, outSize);
     if (saved !== null) return t("toolPage.smaller", { pct: saved, before, after });
     if (tool.id === "compress") return t("toolPage.notSmaller", { before, after });
-    if (tool.id === "imagecompress") return t("toolPage.imageKept", { after });
+    if (tool.id === "imagecompress") {
+      // savedPercent is null under 1%: only say "kept as it was" when the result really is not smaller.
+      return outSize < sizeBefore ? t("toolPage.smallerTiny", { before, after }) : t("toolPage.imageKept", { after });
+    }
     const grown = tool.id === "imageresize" || tool.id === "imageconvert" ? grownPercent(sizeBefore, outSize) : null;
     return grown !== null ? t("toolPage.larger", { pct: grown, before, after }) : null;
   })();

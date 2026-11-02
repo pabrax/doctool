@@ -96,6 +96,9 @@ describe("errorText", () => {
         expect((dict.params as Record<string, string>)[p]).toBeTruthy();
       expect(dict.toolPage.imageKept).toContain("{{after}}");
       expect(dict.toolPage.larger).toContain("{{pct}}");
+      expect(dict.errors).not.toHaveProperty("animated");
+      expect(dict.errors).toHaveProperty("unsupported");
+      expect(dict.errors).toHaveProperty("not_image");
       expect(dict.dropzone.rejectedImage).toBeTruthy();
     }
   });

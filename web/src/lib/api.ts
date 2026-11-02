@@ -17,7 +17,7 @@ export class ApiError extends Error {
   }
 }
 
-function describe(detail: unknown): { message: string; state?: string; field?: string } {
+function describe(detail: unknown): { message: string; state?: string; field?: string; file?: string } {
   if (typeof detail === "string") return { message: detail };
   if (Array.isArray(detail)) {
     const msg = detail
@@ -30,8 +30,8 @@ function describe(detail: unknown): { message: string; state?: string; field?: s
     return { message: msg || "Invalid request", state: "invalid", field };
   }
   if (detail && typeof detail === "object") {
-    const d = detail as { state?: string; message?: string };
-    return { message: d.message ?? "Request failed", state: d.state };
+    const d = detail as { state?: string; message?: string; file?: string };
+    return { message: d.message ?? "Request failed", state: d.state, file: typeof d.file === "string" && d.file ? d.file : undefined };
   }
   return { message: "Request failed" };
 }
@@ -50,9 +50,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       detail = res.statusText;
     }
-    const { message, state, field } = describe(detail);
+    const { message, state, field, file } = describe(detail);
     // The upload limit answers 413 with a plain string; give it the documented state so it is translated.
-    throw new ApiError(res.status, message, state ?? (res.status === 413 ? "too_large" : undefined), field);
+    throw new ApiError(res.status, message, state ?? (res.status === 413 ? "too_large" : undefined), field, file);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
