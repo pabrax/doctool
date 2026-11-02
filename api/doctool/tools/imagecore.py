@@ -15,7 +15,6 @@ _PIL_NAMES = {"png": "PNG", "jpeg": "JPEG", "webp": "WEBP", "avif": "AVIF"}
 _EXTENSIONS = {"png": "png", "jpeg": "jpg", "webp": "webp", "avif": "avif"}
 _ALPHA_FORMATS = {"png", "webp", "avif"}
 _KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
-_PRIVATE_INFO = ("exif", "xmp", "XML:com.adobe.xmp", "comment", "photoshop")
 _MAX_SIDE = {"webp": (16383, "WebP"), "jpeg": (65500, "JPEG")}
 
 
@@ -47,15 +46,69 @@ def target_format(data: bytes) -> str:
     return fmt if fmt in available_formats() else "png"
 
 
-def has_private_metadata(data: bytes) -> bool:
-    """True when the file carries EXIF, XMP, a JPEG/GIF comment or PNG text chunks."""
-    with open_image(data) as img:
-        img.load()
-        return bool(
-            any(img.info.get(k) for k in _PRIVATE_INFO)
-            or getattr(img, "text", None)
-            or len(img.getexif())
+_JPEG_PRIVATE = {0xE1, 0xEB, 0xED, 0xFE}  # APP1 (Exif/XMP/ext. XMP), APP11, APP13, COM
+_PNG_PRIVATE = {b"eXIf", b"tEXt", b"zTXt", b"iTXt", b"tIME"}
+_WEBP_PRIVATE = {b"EXIF", b"XMP "}
+
+
+def _jpeg_private(data: bytes) -> bool:
+    pos, n = 2, len(data)
+    while pos + 4 <= n:
+        if data[pos] != 0xFF:
+            return True  # malformed: do not trust it
+        marker = data[pos + 1]
+        if marker == 0xFF:
+            pos += 1
+            continue
+        if marker in _JPEG_PRIVATE:
+            return True
+        if marker in (0xDA, 0xD9):  # scan data / end: headers are over
+            return False
+        if marker == 0x01 or 0xD0 <= marker <= 0xD8:
+            pos += 2
+            continue
+        pos += 2 + int.from_bytes(data[pos + 2 : pos + 4], "big")
+    return True
+
+
+def _png_private(data: bytes) -> bool:
+    pos, n = 8, len(data)
+    while pos + 8 <= n:
+        size = int.from_bytes(data[pos : pos + 4], "big")
+        if data[pos + 4 : pos + 8] in _PNG_PRIVATE:
+            return True
+        pos += 12 + size
+    return False
+
+
+def _webp_private(data: bytes) -> bool:
+    pos, n = 12, len(data)
+    while pos + 8 <= n:
+        if data[pos : pos + 4] in _WEBP_PRIVATE:
+            return True
+        pos += 8 + int.from_bytes(data[pos + 4 : pos + 8], "little") + (
+            int.from_bytes(data[pos + 4 : pos + 8], "little") & 1
         )
+    return False
+
+
+def has_private_metadata(data: bytes) -> bool:
+    """Byte-level scan of the ORIGINAL file for EXIF, XMP, comments or text chunks.
+
+    True also when the file is not JPEG/PNG/WebP/AVIF (GIF, BMP, TIFF, MPO are re-encoded to
+    another format anyway, so their original bytes are never handed back).
+    """
+    with open_image(data) as img:
+        fmt = img.format
+    if fmt == "JPEG":
+        return _jpeg_private(data)
+    if fmt == "PNG":
+        return _png_private(data)
+    if fmt == "WEBP":
+        return _webp_private(data)
+    if fmt == "AVIF":
+        return b"Exif" in data or b"rdf+xml" in data or b"<x:xmpmeta" in data
+    return True
 
 
 def check_image(data: bytes) -> None:

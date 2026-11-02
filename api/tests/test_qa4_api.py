@@ -165,3 +165,108 @@ def test_resize_output_cap_uses_image_max_pixels(monkeypatch):
     monkeypatch.setattr(imageutil, "IMAGE_MAX_PIXELS", 99)
     with pytest.raises(ToolError):
         ImageResizeTool().run([ToolInput("a.png", buf.getvalue())], params)
+
+
+# Q3 -------------------------------------------------------------------------------------
+def _noise(mode="RGB", size=(64, 64)):
+    return Image.effect_noise(size, 60).convert(mode)
+
+
+def _save(img, fmt, **kw):
+    buf = io.BytesIO()
+    img.save(buf, fmt, **kw)
+    return buf.getvalue()
+
+
+def _jpeg_with_segment(marker: int, payload: bytes) -> bytes:
+    src = _save(_noise(), "JPEG", quality=20)
+    seg = b"\xff" + bytes([marker]) + (len(payload) + 2).to_bytes(2, "big") + payload
+    return src[:2] + seg + src[2:]
+
+
+def _gif_with_xmp() -> bytes:
+    src = _save(_noise("L"), "GIF")
+    pos = 13 + (3 * 2 ** ((src[10] & 7) + 1) if src[10] & 0x80 else 0)
+    ext = b"\x21\xff\x0bXMP DataXMP" + bytes([len(b"secret-xmp")]) + b"secret-xmp" + b"\x00"
+    return src[:pos] + ext + src[pos:]
+
+
+def _png(**kw):
+    return _save(_noise(), "PNG", optimize=True, compress_level=9, **kw)
+
+
+def _png_itxt():
+    from PIL.PngImagePlugin import PngInfo, iTXt
+
+    info = PngInfo()
+    info.add_text("Comment", iTXt("secret-itxt", "en", "Comment"))
+    return _png(pnginfo=info)
+
+
+def _png_text():
+    from PIL.PngImagePlugin import PngInfo
+
+    info = PngInfo()
+    info.add_text("Comment", "secret-text")
+    return _png(pnginfo=info)
+
+
+def _png_exif():
+    exif = Image.Exif()
+    exif[0x010F] = "secret-maker"
+    return _png(exif=exif.tobytes())
+
+
+def _webp(**kw):
+    return _save(_noise(), "WEBP", quality=20, **kw)
+
+
+PRIVATE_CASES = {
+    "jpeg-extxmp": (
+        lambda: _jpeg_with_segment(0xE1, b"http://ns.adobe.com/xmp/extension/\0secret-xmp"),
+        b"secret-xmp", "image/jpeg", "p.jpg"),
+    "jpeg-app13": (
+        lambda: _jpeg_with_segment(0xED, b"Photoshop 3.0\0secret-xmp"),
+        b"secret-xmp", "image/jpeg", "p.jpg"),
+    "png-itxt": (_png_itxt, b"secret-itxt", "image/png", "p.png"),
+    "png-text": (_png_text, b"secret-text", "image/png", "p.png"),
+    "png-exif": (_png_exif, b"secret-maker", "image/png", "p.png"),
+    "gif-xmp": (_gif_with_xmp, b"secret-xmp", "image/gif", "p.gif"),
+    "webp-xmp": (lambda: _webp(xmp=b"<x>secret-xmp</x>"), b"secret-xmp", "image/webp", "p.webp"),
+}
+
+
+@pytest.mark.parametrize("case", list(PRIVATE_CASES))
+def test_never_grow_fallback_scans_original_bytes(client, case):
+    make, marker, mime, name = PRIVATE_CASES[case]
+    src = make()
+    assert marker in src
+    out = run_compress(client, name, src, mime)
+    assert marker not in out
+    assert out != src
+
+
+@pytest.mark.parametrize(
+    ("clean", "mime", "name"),
+    [
+        (lambda: _save(_noise(), "JPEG", quality=20), "image/jpeg", "p.jpg"),
+        (_png, "image/png", "p.png"),
+        (_webp, "image/webp", "p.webp"),
+    ],
+    ids=["jpeg", "png", "webp"],
+)
+def test_clean_never_grow_returns_identical_bytes(client, clean, mime, name):
+    src = clean()
+    assert run_compress(client, name, src, mime) == src
+
+
+def test_gif_never_returns_original(client):
+    src = _save(_noise("L"), "GIF")
+    out = run_compress(client, "p.gif", src, "image/gif")
+    assert out[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def run_compress(client, name, data, mime):
+    from tests.helpers import run_tool
+
+    return run_tool(client, "imagecompress", {"preset": "max"}, [(name, data, mime)]).content

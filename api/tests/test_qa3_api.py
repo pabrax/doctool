@@ -267,9 +267,12 @@ def test_compress_png_text_chunks_count_as_private(client):
     info = PngInfo()
     info.add_text("Comment", "secret-text")
     buf = io.BytesIO()
-    Image.new("RGB", (4, 4), "red").save(buf, "PNG", pnginfo=info)
+    Image.effect_noise((64, 64), 60).convert("RGB").save(
+        buf, "PNG", pnginfo=info, optimize=True, compress_level=9
+    )
+    assert b"secret-text" in buf.getvalue()
     out = run_one(client, "imagecompress", {}, "p.png", buf.getvalue(), "image/png")
-    assert b"secret-text" not in out
+    assert b"secret-text" not in out and out != buf.getvalue()
 
 
 @pytest.mark.parametrize(
