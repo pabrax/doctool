@@ -21,7 +21,7 @@ test("every registered tool has its own icon and a known group in the sidebar", 
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Tools" });
   for (const t of tools) {
-    expect(["organize", "optimize", "convert", "edit", "security"]).toContain(t.group);
+    expect(["organize", "optimize", "convert", "edit", "security", "images"]).toContain(t.group);
     await expect(nav.locator(`[data-tool-icon="${t.id}"]`)).toHaveCount(1);
   }
   await expect(page.locator('[data-tool-icon="fallback"]')).toHaveCount(0);
