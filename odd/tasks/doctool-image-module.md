@@ -34,5 +34,9 @@ audience: end users (local install from the repo, or a web deployment behind a d
 - [ ] I5 web: group `images` (GROUP_ORDER, colour tokens, icons, i18n es/en, Dropzone accept, result facts with size before/after), ADR - accept: vitest + tsc + build + e2e per tool
 - [ ] I6 qa-auditor gate on the live app (`qa/findings.md`), fixes through implementer/tester/reviewer - accept: `QA-AUDIT: clean`
 - [ ] I7 reviewer (opus) + security-reviewer on `main..feat/image-module`; README/SPEC updated - accept: `VERDICT: pass`, `SECURITY: pass`, Open findings 0
+## Findings carried to later tasks (orchestrator review of a213280)
+- F-a `ToolError` state `unsupported` is new: add to docs/SPEC.md per-file states (line 33) and to web i18n error keys es/en (`too_large` already exists) in I5.
+- F-b `keep_metadata` likely loses EXIF when `to_target_mode` converts the image (new object has no exif): tester/reviewer to confirm; fix in imagecore if so.
+- F-c Public-facing memory: MAX_PIXELS 100M x RGBA = ~400 MB per decode plus copies; security-reviewer to judge a lower cap for the images tools (e.g. 50M) and a total-per-task cap.
 ## Out of scope
 ffmpeg/video/GIF->WebM, background removal, SVG, batch zip beyond what tasks already do, drag-crop UI (v0.3-b), external binaries, Docker changes.
