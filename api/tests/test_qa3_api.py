@@ -154,8 +154,9 @@ def test_imagepdf_keeps_the_hard_cap(client):
 
 
 def test_eleven_files_rejected(client):
-    r = process(client, "imageclean", {}, [(f"{i}.png", png()) for i in range(11)], 422)
-    assert "10" in r.text
+    tid = new_task(client, "imageclean")
+    codes = [upload(client, tid, f"{i}.png", png()).status_code for i in range(11)]
+    assert codes == [201] * 10 + [422]
 
 
 @pytest.mark.parametrize("tool", list(IMAGE_TOOLS))

@@ -63,8 +63,9 @@ def check_image(data: bytes) -> None:
     verify_image(data, imageutil.IMAGE_MAX_PIXELS)
 
 
-def preflight(inputs: list[ToolInput]) -> None:
+def preflight(inputs: list[ToolInput], per_image_cap: int | None = None) -> None:
     """Enforce the pixel caps from the headers alone, before anything is decoded."""
+    cap = per_image_cap or imageutil.IMAGE_MAX_PIXELS
     total = 0
     for item in inputs:
         try:
@@ -78,11 +79,11 @@ def preflight(inputs: list[ToolInput]) -> None:
             raise ToolError(
                 "damaged", f"cannot read image '{item.name}'", file=item.name
             ) from exc
-        if pixels > imageutil.IMAGE_MAX_PIXELS:
+        if pixels > cap:
             raise ToolError(
                 "too_large",
                 f"image '{item.name}' is too large ({pixels / 1e6:.0f} megapixels, "
-                f"the limit is {imageutil.IMAGE_MAX_PIXELS / 1e6:.0f})",
+                f"the limit is {cap / 1e6:.0f})",
                 file=item.name,
             )
         total += pixels

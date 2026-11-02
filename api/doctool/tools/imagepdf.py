@@ -6,7 +6,8 @@ from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
-from doctool.tools.imageutil import open_image, verify_image
+from doctool.tools.imagecore import preflight
+from doctool.tools.imageutil import MAX_PIXELS, open_image, verify_image
 from doctool.tools.pages import stem
 
 PAGE_SIZES_PT = {"A4": (595.2756, 841.8898), "letter": (612.0, 792.0)}
@@ -33,6 +34,7 @@ class ImagePdfTool(Tool):
         verify_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImagePdfParams) -> list[ToolOutput]:
+        preflight(inputs, MAX_PIXELS)  # header-only total-pixel cap; per image stays 100 MP
         layout = self._layout(params)
         prepared = [(i.name, _normalize(i)) for i in inputs]
         if params.merge:

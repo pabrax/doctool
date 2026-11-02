@@ -4,7 +4,6 @@ import logging
 import mimetypes
 import threading
 import zipfile
-from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from fastapi import (
@@ -42,7 +41,19 @@ router = APIRouter(prefix="/api/v1", tags=["tasks"])
 _IMAGE_TOOL_IDS = frozenset(
     {"imageclean", "imagecompress", "imageconvert", "imagecrop", "imageresize"}
 )
+_SLOTTED_TOOL_IDS = _IMAGE_TOOL_IDS | {"imagepdf"}
 _IMAGE_SLOTS = threading.BoundedSemaphore(Settings.from_env().image_concurrency)
+
+
+def _too_many(settings: Settings) -> HTTPException:
+    n = settings.image_max_files
+    return HTTPException(
+        422,
+        detail={
+            "state": "too_many_files",
+            "message": f"Select at most {n} images at once.",
+        },
+    )
 
 
 def get_secrets(request: Request) -> dict[str, dict]:
@@ -132,6 +143,8 @@ async def add_task_file(
         raise HTTPException(409, "task is not waiting for files")
     tool = get_tool_or_404(task.tool)
     position = len([f for f in task.files if f.role == "in"])
+    if tool.id in _IMAGE_TOOL_IDS and position >= settings.image_max_files:
+        raise _too_many(settings)
     if version_id:
         version = db.get(Version, version_id)
         if not version or not blobs.exists(version.sha256):
@@ -174,6 +187,7 @@ def process_task(
     db: Session = Depends(get_db),
     blobs: BlobStore = Depends(get_blobs),
     secrets: dict = Depends(get_secrets),
+    settings: Settings = Depends(get_settings),
 ):
     body = body or ProcessBody()
     task = get_task_or_404(db, task_id)
@@ -184,6 +198,8 @@ def process_task(
     raw.update(secrets.get(task.id, {}))
     params = validate_params(tool, raw)
     ins = [f for f in task.files if f.role == "in"]
+    if tool.id in _IMAGE_TOOL_IDS and len(ins) > settings.image_max_files:
+        raise _too_many(settings)
     if len(ins) < tool.min_files or (tool.max_files is not None and len(ins) > tool.max_files):
         raise HTTPException(
             422, f"{tool.id} needs {tool.min_files}..{tool.max_files or 'n'} files, got {len(ins)}"
@@ -196,12 +212,25 @@ def process_task(
             "files": [f.filename for f in ins],
         }
 
-    inputs = [ToolInput(f.filename, blobs.read(f.sha256), body.passwords.get(f.id)) for f in ins]
-    task.state = "processing"
-    db.commit()
+    # Take an image slot first (short wait), before touching the task or reading blobs, so a
+    # busy server answers 503 instead of parking a shared worker thread.
+    slotted = tool.id in _SLOTTED_TOOL_IDS
+    if slotted and not _IMAGE_SLOTS.acquire(timeout=settings.image_slot_wait_seconds):
+        raise HTTPException(
+            503,
+            detail={
+                "state": "busy",
+                "message": "The server is busy. Try again in a moment.",
+                "retryable": True,
+            },
+        )
     try:
-        with _IMAGE_SLOTS if tool.id in _IMAGE_TOOL_IDS else nullcontext():
-            outputs = tool.run(inputs, params)
+        inputs = [
+            ToolInput(f.filename, blobs.read(f.sha256), body.passwords.get(f.id)) for f in ins
+        ]
+        task.state = "processing"
+        db.commit()
+        outputs = tool.run(inputs, params)
     except ToolError as exc:
         task.state = "waiting" if exc.retryable else "error"
         task.error = exc.message
@@ -221,6 +250,9 @@ def process_task(
         secrets.pop(task.id, None)
         db.commit()
         raise HTTPException(500, "internal error while processing") from exc
+    finally:
+        if slotted:
+            _IMAGE_SLOTS.release()
 
     try:
         _store_outputs(db, blobs, task, ins, outputs, params, body.save_to_library)
