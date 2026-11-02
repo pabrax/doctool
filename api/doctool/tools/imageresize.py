@@ -81,10 +81,10 @@ class ImageResizeTool(Tool):
             img = to_target_mode(img, fmt)
             size = _target_size(img.size, params)
             if size[0] * size[1] > MAX_PIXELS:
-                raise ToolError("too_large", f"image '{item.name}' is too large")
+                raise ToolError("too_large", f"image '{item.name}' is too large", file=item.name)
             if size != img.size:
                 img = img.resize(size, Image.Resampling.LANCZOS)
-            data = encode(img, fmt, _QUALITY, False, icc)
+            data = encode(img, fmt, _QUALITY, False, icc, file=item.name)
             outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
         return outs
 

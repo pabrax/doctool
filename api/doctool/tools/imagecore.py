@@ -26,20 +26,23 @@ def load_image(data: bytes, name: str) -> Image.Image:
     try:
         verify_image(data)
     except ValueError as exc:
-        raise ToolError("damaged", f"cannot read image '{name}': {exc}") from exc
+        raise ToolError("damaged", f"cannot read image '{name}': {exc}", file=name) from exc
     try:
         with open_image(data) as img:
             if img.width * img.height > MAX_PIXELS:
-                raise ToolError("too_large", f"image '{name}' is too large")
+                raise ToolError("too_large", f"image '{name}' is too large", file=name)
             if getattr(img, "n_frames", 1) > 1:
-                raise ToolError("unsupported", "animated images are not supported yet")
+                raise ToolError(
+                    "unsupported", f"'{name}' is animated; animated images are not supported yet",
+                    file=name,
+                )
             img.load()
             return ImageOps.exif_transpose(img)
     except ToolError:
         raise
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError,
             Image.DecompressionBombError) as exc:
-        raise ToolError("damaged", f"cannot read image '{name}'") from exc
+        raise ToolError("damaged", f"cannot read image '{name}'", file=name) from exc
 
 
 def to_target_mode(img: Image.Image, fmt: str, background: str = "#ffffff") -> Image.Image:
@@ -74,11 +77,13 @@ def encode(
     keep_metadata: bool = False,
     icc_profile: bytes | None = None,
     exif: bytes | None = None,
+    file: str | None = None,
 ) -> bytes:
     limit = _MAX_SIDE.get(fmt)
     if limit and max(img.size) > limit[0]:
         raise ToolError(
-            "unsupported", f"{limit[1]} images can be at most {limit[0]} px on each side"
+            "unsupported", f"{limit[1]} images can be at most {limit[0]} px on each side",
+            file=file,
         )
     kwargs: dict = {}
     if fmt == "jpeg":
@@ -90,7 +95,7 @@ def encode(
     elif fmt == "png":
         kwargs.update(optimize=True)
     else:
-        raise ToolError("unsupported", f"unsupported output format '{fmt}'")
+        raise ToolError("unsupported", f"unsupported output format '{fmt}'", file=file)
     if icc_profile:
         kwargs["icc_profile"] = icc_profile
     if keep_metadata:
@@ -104,7 +109,7 @@ def encode(
         # exif/XMP are only written when passed explicitly, so they are dropped by default
         img.save(buf, _PIL_NAMES[fmt], **kwargs)
     except (OSError, ValueError, KeyError) as exc:
-        raise ToolError("damaged", f"cannot encode image as {fmt}") from exc
+        raise ToolError("damaged", f"cannot encode image as {fmt}", file=file) from exc
     return buf.getvalue()
 
 

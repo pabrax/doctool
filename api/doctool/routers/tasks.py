@@ -200,9 +200,10 @@ def process_task(
         for f in ins:
             f.state = exc.state
         db.commit()
-        raise HTTPException(
-            400, detail={"type": "ProcessingError", "state": exc.state, "message": exc.message}
-        ) from exc
+        detail = {"type": "ProcessingError", "state": exc.state, "message": exc.message}
+        if exc.file is not None:
+            detail["file"] = exc.file
+        raise HTTPException(400, detail=detail) from exc
     except Exception as exc:
         log.exception("tool %s crashed", tool.id)
         task.state, task.error = "error", "internal error"

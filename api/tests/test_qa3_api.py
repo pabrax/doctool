@@ -70,3 +70,46 @@ def test_open_image_and_global_pixel_cap():
     )
     assert Image.MAX_IMAGE_PIXELS == imageutil.MAX_PIXELS
     assert imageutil.open_image(png()).format == "PNG"
+
+
+# S4 -------------------------------------------------------------------------------------
+def gif_animated() -> bytes:
+    buf = io.BytesIO()
+    frames = [Image.new("RGB", (8, 8), c) for c in ("red", "blue")]
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=50)
+    return buf.getvalue()
+
+
+def process(client, tool, params, files, expect):
+    tid = new_task(client, tool, params)
+    for name, data in files:
+        assert upload(client, tid, name, data).status_code == 201
+    r = client.post(f"/api/v1/tasks/{tid}/process", json={})
+    assert r.status_code == expect, r.text
+    return r
+
+
+@pytest.mark.parametrize("tool", list(IMAGE_TOOLS))
+def test_processing_error_names_the_failing_file(client, tool):
+    r = process(client, tool, IMAGE_TOOLS[tool],
+                [("first.png", png()), ("second.gif", gif_animated())], 400)
+    detail = r.json()["detail"]
+    assert detail["state"] == "unsupported"
+    assert detail["file"] == "second.gif"
+
+
+def test_crop_out_of_range_names_file(client):
+    params = {"mode": "box", "x": 0, "y": 0, "width": 50, "height": 50}
+    r = process(client, "imagecrop", params, [("a.png", png()), ("small.png", png())], 400)
+    detail = r.json()["detail"]
+    assert detail["state"] == "out_of_range"
+    assert detail["file"] == "a.png"
+
+
+def test_error_without_file_has_no_file_key(client):
+    from doctool.tools.base import ToolError
+
+    assert ToolError("damaged", "x").file is None
+    with pytest.raises(TypeError):
+        ToolError("damaged", "x", False, "f.png")  # file is keyword-only
+    assert ToolError("damaged", "x", file="f.png").file == "f.png"

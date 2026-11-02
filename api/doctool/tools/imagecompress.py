@@ -51,7 +51,7 @@ class ImageCompressTool(Tool):
                 scale = cap / longest
                 size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
                 img = img.resize(size, Image.Resampling.LANCZOS)
-            data = encode(img, fmt, quality, False, icc)
+            data = encode(img, fmt, quality, False, icc, file=item.name)
             if len(data) >= len(item.data):  # never grow: hand back the original untouched
                 outs.append(ToolOutput(_unique(item.name, used), item.data))
             else:

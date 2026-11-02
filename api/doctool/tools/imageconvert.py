@@ -68,7 +68,9 @@ class ImageConvertTool(Tool):
                 own = img.getexif()
                 exif = own.tobytes() if len(own) else None
             img = to_target_mode(img, fmt, params.background)
-            data = encode(img, fmt, params.quality, params.keep_metadata, icc, exif)
+            data = encode(
+                img, fmt, params.quality, params.keep_metadata, icc, exif, file=item.name
+            )
             outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
         return outs
 

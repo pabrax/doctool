@@ -38,7 +38,7 @@ class ImageCleanTool(Tool):
             if data is None:
                 img = to_target_mode(img, fmt)
                 img.info.pop("comment", None)  # Pillow would re-write a JPEG comment from info
-                data = encode(img, fmt, _QUALITY[fmt], False, icc)
+                data = encode(img, fmt, _QUALITY[fmt], False, icc, file=item.name)
             outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
         return outs
 

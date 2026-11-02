@@ -77,7 +77,7 @@ class ImageCropTool(Tool):
             icc = img.info.get("icc_profile")
             box = _box_for(img.size, params, item.name)
             img = to_target_mode(img.crop(box), fmt)
-            data = encode(img, fmt, 90, False, icc)
+            data = encode(img, fmt, 90, False, icc, file=item.name)
             outs.append(ToolOutput(_unique(output_name(item.name, fmt), used), data))
         return outs
 
@@ -91,12 +91,13 @@ def _box_for(size: tuple[int, int], p: ImageCropParams, name: str) -> tuple[int,
     w, h = size
     if p.mode == "box":
         if p.width is None or p.height is None:
-            raise ToolError("out_of_range", "box mode needs both width and height")
+            raise ToolError("out_of_range", "box mode needs both width and height", file=name)
         if p.x + p.width > w or p.y + p.height > h:
             raise ToolError(
                 "out_of_range",
                 f"the box (x={p.x}, y={p.y}, {p.width}x{p.height}) does not fit inside "
                 f"'{name}', which is {w}x{h} px",
+                file=name,
             )
         return (p.x, p.y, p.x + p.width, p.y + p.height)
     a, b = _RATIOS[p.ratio]
