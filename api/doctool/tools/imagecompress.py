@@ -6,12 +6,14 @@ from pydantic import BaseModel, Field
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
     available_formats,
+    check_image,
     encode,
     load_image,
     output_name,
+    preflight,
     to_target_mode,
 )
-from doctool.tools.imageutil import open_image, verify_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES, open_image
 
 # preset -> (quality, longest side cap in px)
 _PRESETS = {"web": (82, 2560), "email": (72, 1600), "max": (60, 1280)}
@@ -31,13 +33,14 @@ class ImageCompressTool(Tool):
     description = "Make photos lighter to share or upload."
     Params = ImageCompressParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageCompressParams) -> list[ToolOutput]:
+        preflight(inputs)
         quality, cap = _PRESETS[params.preset]
         used: set[str] = set()
         outs: list[ToolOutput] = []

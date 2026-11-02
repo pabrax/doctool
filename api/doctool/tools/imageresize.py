@@ -6,12 +6,14 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
     available_formats,
+    check_image,
     encode,
     load_image,
     output_name,
+    preflight,
     to_target_mode,
 )
-from doctool.tools.imageutil import MAX_PIXELS, open_image, verify_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES, MAX_PIXELS, open_image
 
 _KEEP = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 _QUALITY = 90
@@ -65,13 +67,14 @@ class ImageResizeTool(Tool):
     description = "Change the width and height of a picture."
     Params = ImageResizeParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageResizeParams) -> list[ToolOutput]:
+        preflight(inputs)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:

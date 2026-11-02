@@ -113,3 +113,116 @@ def test_error_without_file_has_no_file_key(client):
     with pytest.raises(TypeError):
         ToolError("damaged", "x", False, "f.png")  # file is keyword-only
     assert ToolError("damaged", "x", file="f.png").file == "f.png"
+
+
+# S2 -------------------------------------------------------------------------------------
+def test_settings_defaults_and_env(monkeypatch):
+    from doctool.config import Settings
+
+    s = Settings()
+    assert (s.image_max_pixels, s.image_task_max_pixels) == (50_000_000, 100_000_000)
+    assert (s.image_max_files, s.image_concurrency) == (10, 2)
+    monkeypatch.setenv("DOCTOOL_IMAGE_MAX_FILES", "3")
+    monkeypatch.setenv("DOCTOOL_IMAGE_CONCURRENCY", "1")
+    s = Settings.from_env()
+    assert (s.image_max_files, s.image_concurrency) == (3, 1)
+
+
+def test_image_tools_take_max_files_from_settings():
+    from doctool.config import Settings
+    from doctool.tools.base import registry
+
+    for tool in IMAGE_TOOLS:
+        assert registry.get(tool).max_files == Settings().image_max_files
+    assert registry.get("imagepdf").max_files is None
+
+
+def test_51_megapixel_image_rejected_at_upload(client):
+    big = io.BytesIO()
+    Image.new("1", (8000, 6400)).save(big, "PNG")  # 51.2 MP, tiny file
+    for tool, params in IMAGE_TOOLS.items():
+        r = upload(client, new_task(client, tool, params), "big.png", big.getvalue())
+        assert r.status_code == 422, (tool, r.text)
+        assert r.json()["detail"]["state"] == "too_large"
+
+
+def test_imagepdf_keeps_the_hard_cap(client):
+    big = io.BytesIO()
+    Image.new("1", (8000, 6400)).save(big, "PNG")
+    r = upload(client, new_task(client, "imagepdf"), "big.png", big.getvalue())
+    assert r.status_code == 201
+
+
+def test_eleven_files_rejected(client):
+    r = process(client, "imageclean", {}, [(f"{i}.png", png()) for i in range(11)], 422)
+    assert "10" in r.text
+
+
+@pytest.mark.parametrize("tool", list(IMAGE_TOOLS))
+def test_task_total_pixels_rejected_before_decoding(client, monkeypatch, tool):
+    from doctool.tools import imagecore, imageutil
+
+    monkeypatch.setattr(imageutil, "IMAGE_TASK_MAX_PIXELS", 150)
+
+    def no_decode(*a, **k):
+        raise AssertionError("decoded before the preflight")
+
+    monkeypatch.setattr(imagecore, "load_image", no_decode)
+    monkeypatch.setattr(f"doctool.tools.{tool}.load_image", no_decode)
+    files = [(f"{i}.png", png()) for i in range(3)]  # 64 px each, 192 in total
+    r = process(client, tool, IMAGE_TOOLS[tool], files, 400)
+    detail = r.json()["detail"]
+    assert detail["state"] == "too_large"
+    assert detail["file"] == "2.png"
+
+
+def test_preflight_per_image_cap_names_file(monkeypatch):
+    from doctool.tools import imagecore, imageutil
+    from doctool.tools.base import ToolError, ToolInput
+
+    monkeypatch.setattr(imageutil, "IMAGE_MAX_PIXELS", 50)
+    with pytest.raises(ToolError) as exc:
+        imagecore.preflight([ToolInput("fat.png", png())])
+    assert (exc.value.state, exc.value.file) == ("too_large", "fat.png")
+
+
+def test_image_concurrency_is_bounded(client, monkeypatch):
+    import threading
+    import time
+
+    from doctool.routers import tasks
+    from doctool.tools.base import registry
+
+    monkeypatch.setattr(tasks, "_IMAGE_SLOTS", threading.BoundedSemaphore(2))
+    lock = threading.Lock()
+    state = {"now": 0, "max": 0}
+
+    def slow_run(inputs, params):
+        with lock:
+            state["now"] += 1
+            state["max"] = max(state["max"], state["now"])
+        time.sleep(0.15)
+        with lock:
+            state["now"] -= 1
+        return [ToolOutput("o.png", inputs[0].data)]
+
+    from doctool.tools.base import ToolOutput
+
+    monkeypatch.setattr(registry.get("imageclean"), "run", slow_run)
+    tids = []
+    for _ in range(5):
+        tid = new_task(client, "imageclean")
+        assert upload(client, tid, "a.png", png()).status_code == 201
+        tids.append(tid)
+    codes = []
+
+    def go(tid):
+        codes.append(client.post(f"/api/v1/tasks/{tid}/process", json={}).status_code)
+
+    threads = [threading.Thread(target=go, args=(t,)) for t in tids]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert codes == [200] * 5
+    assert state["max"] == 2

@@ -3,8 +3,15 @@ import io
 from pydantic import BaseModel
 
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
-from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
-from doctool.tools.imageutil import open_image, verify_image
+from doctool.tools.imagecore import (
+    check_image,
+    encode,
+    load_image,
+    output_name,
+    preflight,
+    to_target_mode,
+)
+from doctool.tools.imageutil import IMAGE_MAX_FILES, open_image
 
 _FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
 _QUALITY = {"jpeg": 95, "webp": 95, "avif": 90, "png": 95}
@@ -21,13 +28,14 @@ class ImageCleanTool(Tool):
     description = "Strips hidden data such as location, camera and date."
     Params = ImageCleanParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageCleanParams) -> list[ToolOutput]:
+        preflight(inputs)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:

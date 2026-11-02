@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
     available_formats,
+    check_image,
     encode,
     load_image,
     output_name,
+    preflight,
     to_target_mode,
 )
-from doctool.tools.imageutil import verify_image
+from doctool.tools.imageutil import IMAGE_MAX_FILES
 
 # Evaluated once at import: an install without AVIF simply does not offer it.
 _TO_INTERNAL = {"jpg": "jpeg"}
@@ -50,13 +52,14 @@ class ImageConvertTool(Tool):
     description = "Change a picture to JPG, PNG or WebP."
     Params = ImageConvertParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageConvertParams) -> list[ToolOutput]:
+        preflight(inputs)
         fmt = _TO_INTERNAL.get(params.format, params.format)
         used: set[str] = set()
         outs: list[ToolOutput] = []

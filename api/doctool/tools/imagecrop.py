@@ -3,8 +3,15 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
-from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
-from doctool.tools.imageutil import open_image, verify_image
+from doctool.tools.imagecore import (
+    check_image,
+    encode,
+    load_image,
+    output_name,
+    preflight,
+    to_target_mode,
+)
+from doctool.tools.imageutil import IMAGE_MAX_FILES, open_image
 
 _RATIOS = {"1-1": (1, 1), "4-3": (4, 3), "3-2": (3, 2), "16-9": (16, 9)}
 _FORMATS = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "AVIF": "avif"}
@@ -62,13 +69,14 @@ class ImageCropTool(Tool):
     description = "Cut a picture to a shape or a pixel box."
     Params = ImageCropParams
     min_files = 1
-    max_files = None
+    max_files = IMAGE_MAX_FILES
     accepts = "image"
 
     def check_input(self, data: bytes) -> None:
-        verify_image(data)
+        check_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImageCropParams) -> list[ToolOutput]:
+        preflight(inputs)
         used: set[str] = set()
         outs: list[ToolOutput] = []
         for item in inputs:
