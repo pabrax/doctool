@@ -12,6 +12,28 @@ SPEC section 8 says "neutral palette + one accent". The result was flat and look
 - Headings use Schibsted Grotesk (newspaper grotesk; replaced Fraunces on 2026-10-25 because the soft serif read as Times New Roman), body uses Inter; both self-hosted from `web/public/fonts/` (SIL OFL), so the strict CSP (`font-src 'self'`) is unchanged.
 - Lucide remains the only icon set; each tool gets its own Lucide icon.
 
+## D2 addendum
+**D2a (2026-11-02, owner approved the plan; colour and order are defaults the owner may veto):** Tool groups grow from five to six. `images` (magenta) is added for the IMAGE module (convert, compress, resize, crop, clean). The rule is unchanged: the app accent stays one neutral ink; colour is carried only by tool groups, never by chrome. Each group still supplies `-fg/-ink/-soft` tokens verified >= 4.5:1 for text and >= 3:1 for non-text in both themes (now WCAG 2.2 AA; this ADR cites 2.1, same ratios). Group order places `images` last so existing tile positions do not move. Color is never the only signal. SPEC section 8 ("one color per tool group") is amended to "one color per tool group (six)".
+
+Tokens (light / dark): `--images` #c2257f / #f07cc0, `--images-fg` #ffffff / #14161c, `--images-ink` #b01f72 / #f07cc0, `--images-soft` #fce7f3 / #3a1830.
+
+Contrast, computed with the WCAG relative-luminance formula by a script (not by hand):
+
+| Pair | Ratio | Need |
+|---|---|---|
+| light fg on fill | 5.43:1 | 4.5 |
+| light ink on surface #ffffff | 6.39:1 | 4.5 |
+| light ink on soft | 5.44:1 | 4.5 |
+| light ink on bg #f7f8fa | 6.02:1 | 4.5 |
+| light fill vs surface (non-text) | 5.43:1 | 3 |
+| dark fg on fill | 7.19:1 | 4.5 |
+| dark ink on surface #1d2029 | 6.47:1 | 4.5 |
+| dark ink on soft | 6.17:1 | 4.5 |
+| dark ink on bg #14161c | 7.19:1 | 4.5 |
+| dark fill vs surface (non-text) | 6.47:1 | 3 |
+
+Magenta is the nearest neighbour of vermilion (`--edit`) for colour-blind users; group and tool names stay as text on every tile and header.
+
 ## Why / Criterion
 Why: group color lets users locate a tool by scanning (like colored folder tabs) and gives the product a personality; the neutral accent keeps it calm. Criterion: user experience first, bounded by WCAG 2.1 AA, keyboard use, reduced motion and the strict CSP.
 

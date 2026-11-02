@@ -58,6 +58,10 @@
   --security-fg: #ffffff;
   --security-ink: #6535ea;
   --security-soft: #eee8ff;
+  --images: #c2257f;
+  --images-fg: #ffffff;
+  --images-ink: #b01f72;
+  --images-soft: #fce7f3;
   color-scheme: light;
 }
 
@@ -97,6 +101,10 @@
     --security-fg: #14161c;
     --security-ink: #a98bff;
     --security-soft: #2a2148;
+    --images: #f07cc0;
+    --images-fg: #14161c;
+    --images-ink: #f07cc0;
+    --images-soft: #3a1830;
     color-scheme: dark;
   }
 }
@@ -136,6 +144,10 @@
   --security-fg: #14161c;
   --security-ink: #a98bff;
   --security-soft: #2a2148;
+  --images: #f07cc0;
+  --images-fg: #14161c;
+  --images-ink: #f07cc0;
+  --images-soft: #3a1830;
   color-scheme: dark;
 }
 
@@ -151,7 +163,8 @@
 [data-group="optimize"],
 [data-group="convert"],
 [data-group="edit"],
-[data-group="security"] {
+[data-group="security"],
+[data-group="images"] {
   --g: var(--group);
   --g-fg: var(--group-fg);
   --g-ink: var(--group-ink);
@@ -162,6 +175,7 @@
 [data-group="convert"] { --group: var(--convert); --group-fg: var(--convert-fg); --group-ink: var(--convert-ink); --group-soft: var(--convert-soft); }
 [data-group="edit"] { --group: var(--edit); --group-fg: var(--edit-fg); --group-ink: var(--edit-ink); --group-soft: var(--edit-soft); }
 [data-group="security"] { --group: var(--security); --group-fg: var(--security-fg); --group-ink: var(--security-ink); --group-soft: var(--security-soft); }
+[data-group="images"] { --group: var(--images); --group-fg: var(--images-fg); --group-ink: var(--images-ink); --group-soft: var(--images-soft); }
 
 @theme inline {
   --color-bg: var(--bg);
