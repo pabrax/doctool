@@ -109,3 +109,59 @@ describe("formatBytes", () => {
     [300 * 1024, "300 KB"],
   ])("%i -> %s", (n, s) => expect(formatBytes(n)).toBe(s));
 });
+
+describe("image error and hint copy (QA1-web)", () => {
+  const imageErr = async (lang: "en" | "es", state: string, tool: string, status = 422) => {
+    await i18n.changeLanguage(lang);
+    return errorText(i18n.t.bind(i18n), new ApiError(status, "raw english", state), tool);
+  };
+  afterEach(() => i18n.changeLanguage("en"));
+
+  it("maps upload and processing states for image tools", async () => {
+    expect(await imageErr("en", "not_image", "imageconvert")).toBe(en.errors.not_image);
+    expect(await imageErr("en", "damaged", "imagecompress")).toBe("This picture looks damaged or incomplete. Try another copy.");
+    expect(await imageErr("es", "damaged", "imagecompress")).toBe("Esta imagen parece dañada o incompleta. Prueba con otra copia.");
+    expect(await imageErr("en", "damaged", "split")).toBe(en.errors.damaged);
+    expect(await imageErr("es", "too_large", "imageresize", 413)).toBe(es.errors.too_large_image);
+    expect(await imageErr("es", "unsupported", "imageclean")).toBe(es.errors.unsupported);
+    expect(await imageErr("es", "out_of_range", "imagecrop")).toBe(es.errors.out_of_image);
+  });
+
+  it("413 without a state still shows translated text, for every tool", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ detail: "file too large" }), { status: 413 })) as typeof fetch;
+    const err = await api.documents().catch((e) => e);
+    await i18n.changeLanguage("es");
+    expect(errorText(i18n.t.bind(i18n), err, "merge")).toBe(es.errors.too_large);
+    expect(errorText(i18n.t.bind(i18n), err, "imageresize")).toBe(es.errors.too_large_image);
+  });
+
+  it("422 validation lists name the field label instead of the raw message", async () => {
+    globalThis.fetch = vi.fn(
+      async () => new Response(JSON.stringify({ detail: [{ loc: ["body", "params", "quality"], msg: "Input should be less than or equal to 100" }] }), { status: 422 }),
+    ) as typeof fetch;
+    const err = await api.documents().catch((e) => e);
+    await i18n.changeLanguage("en");
+    expect(errorText(i18n.t.bind(i18n), err, "imageconvert")).toBe('Check the value of "Quality".');
+    await i18n.changeLanguage("es");
+    expect(errorText(i18n.t.bind(i18n), err, "imageconvert")).toBe("Revisa el valor de «Calidad».");
+    expect(errorText(i18n.t.bind(i18n), err, "imageconvert")).not.toMatch(/Input should/);
+  });
+
+  it("422 without a usable field falls back to the generic invalid text", async () => {
+    await i18n.changeLanguage("en");
+    expect(errorText(i18n.t.bind(i18n), new ApiError(422, "params: Value error", "invalid"), "imageresize")).toBe(en.errors.invalid);
+  });
+
+  it("every image-tool field with a description has a hint in both languages", () => {
+    const fields: Record<string, string[]> = {
+      imageconvert: ["format", "quality", "background", "keep_metadata"],
+      imagecompress: ["preset"],
+      imageresize: ["mode", "width", "height", "percent"],
+      imagecrop: ["mode", "ratio", "x", "y", "width", "height"],
+    };
+    for (const dict of [en, es])
+      for (const [tool, names] of Object.entries(fields))
+        for (const n of names) expect(((dict.hints as any)[tool] ?? {})[n], `${tool}.${n}`).toBeTruthy();
+    expect(en.hints.imageresize.mode).toMatch(/proportions/);
+  });
+});
