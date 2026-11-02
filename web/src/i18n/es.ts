@@ -167,6 +167,8 @@ const es: Dict = {
     options: "Opciones",
     needMore_one: "Añade {{count}} archivo más para continuar.",
     needMore_other: "Añade {{count}} archivos más para continuar.",
+    tooManyImages: "Puedes procesar hasta {{max}} imágenes a la vez. Quita {{extra}} para continuar.",
+    tooManyFiles: "Puedes procesar hasta {{max}} archivos a la vez. Quita {{extra}} para continuar.",
     fileCount_one: "{{count}} archivo",
     fileCount_other: "{{count}} archivos",
     clearAll: "Quitar todos",
@@ -194,6 +196,8 @@ const es: Dict = {
   errors: {
     network: "No se puede conectar con el servidor de doctool. ¿Está en marcha?",
     wrong_password: "Falta la contraseña o es incorrecta.",
+    too_many_files: "Puedes procesar hasta {{max}} imágenes a la vez.",
+    busy: "El servidor está ocupado ahora mismo. Espera un momento y pulsa Ejecutar de nuevo.",
     damaged: "El archivo está dañado o no es un documento válido.",
     out_of_range: "Un número de página está fuera del documento.",
     no_images: "El modo imagen necesita una imagen como segundo archivo.",
