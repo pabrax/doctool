@@ -238,3 +238,16 @@ describe("home", () => {
     expect(groupLabel.className).not.toMatch(/max-sm:hidden/);
   });
 });
+
+describe("sidebar", () => {
+  it("scrolls the active tool into view, nearest edge only", async () => {
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+    mockFetch({ "GET /tools": { body: [imageTool("imagecrop"), imageTool("imageclean"), mergeTool] }, "GET /documents": { body: [] } });
+    renderApp("/tools/imageclean");
+    await screen.findByRole("heading", { level: 1, name: "Remove photo info" });
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledWith({ block: "nearest" }));
+    const target = spy.mock.contexts.at(-1) as HTMLElement;
+    expect(target).toHaveAttribute("aria-current", "page");
+    spy.mockRestore();
+  });
+});
