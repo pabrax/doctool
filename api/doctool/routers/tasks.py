@@ -224,6 +224,11 @@ def process_task(
                 "retryable": True,
             },
         )
+    if slotted:
+        db.refresh(task)  # another request may have taken this task while we waited
+        if task.state != "waiting":
+            _IMAGE_SLOTS.release()
+            raise HTTPException(409, "task is not waiting")
     try:
         inputs = [
             ToolInput(f.filename, blobs.read(f.sha256), body.passwords.get(f.id)) for f in ins

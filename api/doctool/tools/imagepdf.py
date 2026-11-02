@@ -34,7 +34,7 @@ class ImagePdfTool(Tool):
         verify_image(data)
 
     def run(self, inputs: list[ToolInput], params: ImagePdfParams) -> list[ToolOutput]:
-        preflight(inputs, MAX_PIXELS)  # header-only total-pixel cap; per image stays 100 MP
+        preflight(inputs, MAX_PIXELS, task_cap=None)  # per image only; the semaphore bounds memory
         layout = self._layout(params)
         prepared = [(i.name, _normalize(i)) for i in inputs]
         if params.merge:

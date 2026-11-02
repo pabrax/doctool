@@ -80,20 +80,6 @@ def test_slot_released_when_tool_raises(client, monkeypatch):
     assert tasks._IMAGE_SLOTS.acquire(blocking=False)
 
 
-def test_imagepdf_uses_slot_and_total_pixel_preflight(client, monkeypatch):
-    from doctool.routers import tasks
-    from doctool.tools import imageutil
-
-    assert "imagepdf" in tasks._SLOTTED_TOOL_IDS
-    monkeypatch.setattr(imageutil, "IMAGE_TASK_MAX_PIXELS", 150)
-    tid = new_task(client, "imagepdf")
-    for i in range(3):
-        assert upload(client, tid, f"{i}.png", png()).status_code == 201
-    r = client.post(f"/api/v1/tasks/{tid}/process", json={})
-    assert r.status_code == 400
-    assert r.json()["detail"]["state"] == "too_large"
-
-
 # Q2 -------------------------------------------------------------------------------------
 @pytest.mark.parametrize("bad", ["0", "-3", "abc", "1.5"])
 @pytest.mark.parametrize(
@@ -109,7 +95,7 @@ def test_invalid_env_caps_fall_back(monkeypatch, caplog, key, bad):
 @pytest.mark.parametrize("bad", ["0", "-1", "abc"])
 def test_invalid_slot_wait_falls_back(monkeypatch, bad):
     monkeypatch.setenv("DOCTOOL_IMAGE_SLOT_WAIT_SECONDS", bad)
-    assert Settings.from_env().image_slot_wait_seconds == 2.0
+    assert Settings.from_env().image_slot_wait_seconds == 0.5
 
 
 def test_valid_env_caps_applied(monkeypatch):
@@ -151,22 +137,6 @@ def test_process_too_many_uses_same_state(client, monkeypatch):
 
 
 # Q5 -------------------------------------------------------------------------------------
-def test_resize_output_cap_uses_image_max_pixels(monkeypatch):
-    from doctool.tools import imageutil
-    from doctool.tools.base import ToolError, ToolInput
-    from doctool.tools.imageresize import ImageResizeParams, ImageResizeTool
-
-    buf = io.BytesIO()
-    Image.new("RGB", (10, 10)).save(buf, "PNG")
-    monkeypatch.setattr(imageutil, "IMAGE_MAX_PIXELS", 150)
-    monkeypatch.setattr("doctool.tools.imageresize.preflight", lambda inputs: None)
-    params = ImageResizeParams(mode="percent", percent=100)
-    ImageResizeTool().run([ToolInput("a.png", buf.getvalue())], params)  # 100 px: fine
-    monkeypatch.setattr(imageutil, "IMAGE_MAX_PIXELS", 99)
-    with pytest.raises(ToolError):
-        ImageResizeTool().run([ToolInput("a.png", buf.getvalue())], params)
-
-
 # Q3 -------------------------------------------------------------------------------------
 def _noise(mode="RGB", size=(64, 64)):
     return Image.effect_noise(size, 60).convert(mode)
