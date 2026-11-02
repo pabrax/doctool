@@ -83,6 +83,30 @@ def test_parallel_process_same_task_runs_once(client, monkeypatch):
     assert tasks._IMAGE_SLOTS.acquire(blocking=False)
 
 
+def test_task_deleted_while_waiting_for_a_slot_frees_the_slot(client, monkeypatch):
+    from doctool.routers import tasks
+
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(tasks, "_IMAGE_SLOTS", slots)
+    client.app.state.settings.image_slot_wait_seconds = 5
+    tid = new_task(client, "imageclean")
+    assert upload(client, tid, "a.png", png()).status_code == 201
+    slots.acquire()  # the process request below has to wait for it
+    codes = []
+    t = threading.Thread(
+        target=lambda: codes.append(
+            client.post(f"/api/v1/tasks/{tid}/process", json={}).status_code
+        )
+    )
+    t.start()
+    time.sleep(0.4)
+    assert client.delete(f"/api/v1/tasks/{tid}").status_code in (200, 204)
+    slots.release()
+    t.join(10)
+    assert codes and codes[0] in (404, 409)
+    assert slots.acquire(blocking=False), "the image slot leaked after the task was deleted"
+
+
 def _exif() -> bytes:
     from PIL import Image
 
@@ -145,3 +169,77 @@ def test_allowlist_clean_files_not_private(clean):
     from doctool.tools.imagecore import has_private_metadata
 
     assert not has_private_metadata(clean())
+
+
+def _icc() -> bytes:
+    from PIL import ImageCms
+
+    return ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+
+
+def _clean_samples():
+    from PIL import Image
+
+    im = Image.frombytes("RGB", (48, 48), bytes(range(256)) * 27)
+    cmyk = im.convert("CMYK")
+    out = {}
+    for name, img, fmt, kw in [
+        ("jpeg-baseline", im, "JPEG", {}),
+        ("jpeg-progressive", im, "JPEG", {"progressive": True}),
+        ("jpeg-icc", im, "JPEG", {"icc_profile": _icc()}),
+        ("jpeg-cmyk-adobe", cmyk, "JPEG", {}),
+        ("png-plain", im, "PNG", {}),
+        ("png-icc", im, "PNG", {"icc_profile": _icc()}),
+        ("webp-plain", im, "WEBP", {}),
+        ("webp-icc", im, "WEBP", {"icc_profile": _icc()}),
+    ]:
+        import io
+
+        buf = io.BytesIO()
+        img.save(buf, fmt, **kw)
+        out[name] = buf.getvalue()
+    return out
+
+
+CLEAN = _clean_samples()
+
+
+@pytest.mark.parametrize("name", list(CLEAN))
+def test_normal_files_are_not_private(name):
+    from doctool.tools import imagecore
+
+    assert imagecore.has_private_metadata(CLEAN[name]) is False
+
+
+def test_allowlist_is_sensitive_to_the_icc_entries(monkeypatch):
+    """Dropping ICC from the allowlists would flag every colour-managed photo as private."""
+    from doctool.tools import imagecore
+
+    monkeypatch.setattr(imagecore, "_PNG_OK", imagecore._PNG_OK - {b"iCCP"})
+    assert imagecore.has_private_metadata(CLEAN["png-icc"]) is True
+
+
+MALFORMED = [
+    b"",
+    bytes([0xFF, 0xD8]),
+    bytes([0xFF, 0xD8, 0xFF]),
+    bytes([0xFF, 0xD8, 0xFF, 0xE1, 0x00]),
+    bytes([0xFF, 0xD8, 0xFF, 0xE1, 0xFF, 0xFF]) + b"AAAA",
+    bytes([0xFF, 0xD8]) + bytes([0xFF, 0xE0, 0x00, 0x02]) * 5000,
+    b"\x89PNG\r\n\x1a\n",
+    b"\x89PNG\r\n\x1a\n" + bytes([0, 0, 0xFF, 0xFF]) + b"IHDR",
+    b"RIFF" + bytes([4, 0, 0, 0]) + b"WEBP",
+    b"RIFF" + bytes([0xFF] * 4) + b"WEBPVP8 " + bytes([0xFF] * 4),
+    bytes(64),
+]
+
+
+@pytest.mark.parametrize("data", MALFORMED, ids=[f"m{i}" for i in range(len(MALFORMED))])
+def test_malformed_headers_are_private_and_never_raise_or_hang(data):
+    import time as _t
+
+    from doctool.tools import imagecore
+
+    t0 = _t.monotonic()
+    assert imagecore.has_private_metadata(data) is True
+    assert _t.monotonic() - t0 < 2

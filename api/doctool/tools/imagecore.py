@@ -50,7 +50,7 @@ def target_format(data: bytes) -> str:
 # and a file we cannot parse is private too (the caller then returns the metadata-free copy).
 _PNG_OK = {
     b"IHDR", b"PLTE", b"IDAT", b"IEND", b"gAMA", b"cHRM", b"sRGB", b"iCCP", b"pHYs", b"sBIT",
-    b"bKGD", b"tRNS",
+    b"bKGD", b"tRNS", b"cICP", b"cLLI", b"mDCV",
 }
 _WEBP_OK = {b"VP8 ", b"VP8L", b"VP8X", b"ALPH", b"ANIM", b"ANMF", b"ICCP"}
 _AVIF_MARKERS = (b"Exif", b"mime", b"jumb", b"rdf+xml", b"xmp", b"XMP", b"c2pa", b"cabx")
@@ -151,8 +151,11 @@ def has_private_metadata(data: bytes) -> bool:
     True also when the file is not JPEG/PNG/WebP/AVIF (GIF, BMP, TIFF, MPO are re-encoded to
     another format anyway, so their original bytes are never handed back) or cannot be parsed.
     """
-    with open_image(data) as img:
-        fmt = img.format
+    try:
+        with open_image(data) as img:
+            fmt = img.format
+    except Exception:  # unreadable or truncated: private, so the caller sends the clean copy
+        return True
     scan = {
         "JPEG": _jpeg_private, "PNG": _png_private, "WEBP": _webp_private, "AVIF": _avif_private,
     }.get(fmt or "")

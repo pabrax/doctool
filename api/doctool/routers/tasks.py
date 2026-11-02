@@ -225,7 +225,11 @@ def process_task(
             },
         )
     if slotted:
-        db.refresh(task)  # another request may have taken this task while we waited
+        try:
+            db.refresh(task)  # another request may have taken this task while we waited
+        except Exception as exc:  # the task was deleted while we waited for the slot
+            _IMAGE_SLOTS.release()
+            raise HTTPException(404, "task not found") from exc
         if task.state != "waiting":
             _IMAGE_SLOTS.release()
             raise HTTPException(409, "task is not waiting")
