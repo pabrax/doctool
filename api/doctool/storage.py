@@ -33,6 +33,12 @@ class BlobStore:
             raise
         return sha
 
+    def size(self, sha256: str) -> int | None:
+        try:
+            return self.path(sha256).stat().st_size
+        except OSError:
+            return None
+
     def read(self, sha256: str) -> bytes:
         return self.path(sha256).read_bytes()
 
