@@ -1,0 +1,37 @@
+---
+feature: doctool-image-module
+status: active          # owner approved 2026-11-02 ("aprobado el plan, solo AVIF opcional, solo usa pillow")
+lane: L2
+branch: feat/image-module (from main @ 89fde42)
+tdd: on
+audience: end users (local install from the repo, or a web deployment behind a domain); today only the owner uses it
+---
+# Doctool image module (v0.3-a)
+## Specs (owner's words)
+- S1 "solo AVIF opcional, solo usa pillow" - accept: engine is Pillow only (no new dependency, no external binary, no ffmpeg in this module); AVIF is offered only when `PIL.features.check("avif")` is true, never required - check: pytest with AVIF present and with it monkeypatched off
+- S2 "realiza el proyecto pensando en un publico final" - accept: every tool has hard limits, clear error messages (es/en), accessible UI, privacy by default (metadata stripped unless asked), safe on untrusted files, no data leaves the machine - check: security-reviewer pass + e2e + a11y checklist
+- S3 "un agente que revise la app por si hay posibles bugs y los corrija" - accept: `qa-auditor` agent + gate after each slice, findings fixed through implementer -> tester -> reviewer, never by the auditor - check: `qa/findings.md` per slice
+- S4 "servidor en vivo" - accept: API :8000 + Vite HMR :5173 running during the work
+## Evidence (verified this session)
+- Tool contract `api/doctool/tools/base.py` (Tool: id/title/group/Params/min_files/max_files/accepts/check_input/run; ToolInput(name,data,password), ToolOutput(name,data), ToolError(state,message,retryable)); registered by import in `tools/__init__.py`; pattern `tools/imagepdf.py`; guard `tools/imageutil.py` (MAX_PIXELS 100M, `verify_image`).
+- Pillow 13.0.0 on the venv: webp, avif (libavif 1.4.2), jpg, jpg_2000, libtiff; no libimagequant/mozjpeg.
+- `process_task` is synchronous and in-memory (`routers/tasks.py:146-214`): fine for images; non-PDF outputs are download-only.
+- `pdfimage` (PDF -> images) and `imagepdf` already exist: not rebuilt.
+## Decisions (this plan)
+- D1 Engine: Pillow only. Rejected: pyvips, oxipng, pngquant, ImageMagick (owner decision; also licences). Criterion 5 simplicity + 1 safety.
+- D2 AVIF is feature-detected at import: the `target` enum of the Params only lists formats the install can encode; an install without AVIF simply does not show it.
+- D3 Animated inputs (GIF/WebP/APNG with >1 frame) are rejected with a clear message in v0.3-a (no silent frame dropping).
+- D4 Privacy default: EXIF/GPS/XMP removed after applying orientation; ICC profile kept (colour fidelity); option `keep_metadata=false` default.
+- D5 Never grow: compress returns the original bytes when the result is not smaller.
+- D6 New tool group `images` with its own colour token (needs an ADR amending the SPEC one-accent rule, same pattern as `docs/adr-ui-identity.md`); owner can fold it into convert/optimize later.
+- D7 Video / GIF -> WebM and the async runner are OUT of this feature (a later feature with L3 review; ffmpeg only as external binary).
+## Tasks
+- [ ] I1 ui-ux-designer: `design/image-tools.md` (group/colour/icons, options UI for the 5 tools, before/after sizes, states, es/en copy, a11y, phone) - accept: spec written, owner confirms 3 decisions
+- [ ] I2 vertical slice (backend): `api/doctool/tools/imagecore.py` (safe load with orientation, mode handling RGBA/P/CMYK/16-bit, encode per format, format availability, limits) + tool `imageconvert` + tests (bomb, truncated, animated, CMYK, transparency->JPEG, EXIF stripped, AVIF on/off, never-grow n/a) - accept: pytest + ruff green, new tests failed first
+- [ ] I3 tester on I2 (independent): spec gaps and edge cases - accept: `QA: pass`
+- [ ] I4 backend tools `imagecompress` (presets web/email/max), `imageresize` (fit/exact/percent, no_upscale), `imagecrop` (box/aspect), `imageclean` (metadata strip), one implementer task each reusing imagecore - accept per tool: pytest + ruff
+- [ ] I5 web: group `images` (GROUP_ORDER, colour tokens, icons, i18n es/en, Dropzone accept, result facts with size before/after), ADR - accept: vitest + tsc + build + e2e per tool
+- [ ] I6 qa-auditor gate on the live app (`qa/findings.md`), fixes through implementer/tester/reviewer - accept: `QA-AUDIT: clean`
+- [ ] I7 reviewer (opus) + security-reviewer on `main..feat/image-module`; README/SPEC updated - accept: `VERDICT: pass`, `SECURITY: pass`, Open findings 0
+## Out of scope
+ffmpeg/video/GIF->WebM, background removal, SVG, batch zip beyond what tasks already do, drag-crop UI (v0.3-b), external binaries, Docker changes.
