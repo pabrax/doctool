@@ -2,7 +2,7 @@ import io
 from typing import Literal
 
 from PIL import Image
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import (
@@ -35,6 +35,7 @@ class ImageResizeParams(BaseModel):
     height: int | None = Field(
         None,
         ge=1,
+        validate_default=True,
         description=(
             "Height in pixels. Optional when fitting inside a size; required for an exact "
             "size, where the proportions may change."
@@ -49,11 +50,13 @@ class ImageResizeParams(BaseModel):
         json_schema_extra={"show_when": {"mode": ["percent"]}},
     )
 
-    @model_validator(mode="after")
-    def _exact_needs_height(self):
-        if self.mode == "exact" and self.height is None:
+    @field_validator("height")
+    @classmethod
+    def _exact_needs_height(cls, v: int | None, info: ValidationInfo):
+        # Field-level so the 422 `loc` names the missing field.
+        if v is None and info.data.get("mode") == "exact":
             raise ValueError("height is required for an exact size")
-        return self
+        return v
 
 
 class ImageResizeTool(Tool):

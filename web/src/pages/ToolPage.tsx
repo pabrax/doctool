@@ -10,7 +10,7 @@ import { LibraryPicker } from "@/components/LibraryPicker";
 import { SchemaForm, defaultsFor, type FormValue } from "@/components/SchemaForm";
 import { ToolIcon } from "@/components/ToolIcon";
 import { cardClass } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { isKnownGroup, toolIcon } from "@/lib/toolIcons";
 import { errorText, isWrongPassword } from "@/lib/errors";
 import type { Doc, InputRef, Task, Tool } from "@/lib/types";
@@ -98,7 +98,14 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
       try {
         const ids: Record<string, string> = {};
         for (const input of inputs) {
-          const t2 = await api.addTaskFile(task.id, input.file ? { file: input.file } : { versionId: input.versionId });
+          let t2: Task;
+          try {
+            t2 = await api.addTaskFile(task.id, input.file ? { file: input.file } : { versionId: input.versionId });
+          } catch (err) {
+            // Say which file was rejected; the files stay listed so the user can remove it and retry.
+            if (err instanceof ApiError && err.state !== "network") err.file = input.name;
+            throw err;
+          }
           ids[input.key] = t2.files.filter((f) => f.role === "in").at(-1)!.id;
         }
         const pw: Record<string, string> = {};

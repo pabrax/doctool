@@ -2,7 +2,7 @@ import io
 from typing import Literal
 
 from PIL import Image
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.imagecore import encode, load_image, output_name, to_target_mode
@@ -36,21 +36,25 @@ class ImageCropParams(BaseModel):
     width: int | None = Field(
         None,
         ge=1,
+        validate_default=True,
         description="box mode: width of the box (px)",
         json_schema_extra={"show_when": {"mode": ["box"]}},
     )
     height: int | None = Field(
         None,
         ge=1,
+        validate_default=True,
         description="box mode: height of the box (px)",
         json_schema_extra={"show_when": {"mode": ["box"]}},
     )
 
-    @model_validator(mode="after")
-    def _box_needs_size(self):
-        if self.mode == "box" and (self.width is None or self.height is None):
+    @field_validator("width", "height")
+    @classmethod
+    def _box_needs_size(cls, v: int | None, info: ValidationInfo):
+        # Field-level so the 422 `loc` names the missing field.
+        if v is None and info.data.get("mode") == "box":
             raise ValueError("width and height are required in box mode")
-        return self
+        return v
 
 
 class ImageCropTool(Tool):

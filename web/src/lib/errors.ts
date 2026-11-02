@@ -15,6 +15,11 @@ const humanize = (s: string) => s.replace(/[_-]+/g, " ").replace(/^./, (c) => c.
 
 /** Friendly, translated text for an API error; falls back to the server message. */
 export function errorText(t: TFunction, err: unknown, toolId?: string): string {
+  const reason = reasonText(t, err, toolId);
+  return err instanceof ApiError && err.file ? t("errors.in_file", { file: err.file, reason, interpolation: { escapeValue: false } }) : reason;
+}
+
+function reasonText(t: TFunction, err: unknown, toolId?: string): string {
   if (err instanceof ApiError) {
     if (err.state === "invalid") {
       // FastAPI validation text is English: name the field instead of showing it raw.
