@@ -154,6 +154,7 @@ const en = {
     release: "Release to add your files",
     pdf: "PDF files",
     image: "Images (JPG, PNG, WEBP, GIF, BMP)",
+    imageStill: "Images: JPG, PNG, WebP (still pictures only)",
     pdfImage: "A PDF, plus an image for image watermarks",
     fromLibrary: "From library",
     pick: "Select files",

@@ -28,9 +28,11 @@ interface Props {
   /** Extra controls rendered next to the select button (e.g. "From library"). */
   extra?: React.ReactNode;
   compact?: boolean;
+  /** Tool group; the images group names only the still formats it handles. */
+  group?: string;
 }
 
-export function Dropzone({ accepts, multiple = true, onFiles, extra, compact }: Props) {
+export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, group }: Props) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -43,7 +45,14 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact }: 
     setRejected(all.length - ok.length);
     if (ok.length) onFiles(multiple ? ok : ok.slice(0, 1));
   };
-  const kind = accepts === "pdf" ? t("dropzone.pdf") : accepts === "image" ? t("dropzone.image") : t("dropzone.pdfImage");
+  const kind =
+    accepts === "pdf"
+      ? t("dropzone.pdf")
+      : accepts === "image"
+        ? group === "images"
+          ? t("dropzone.imageStill")
+          : t("dropzone.image")
+        : t("dropzone.pdfImage");
 
   return (
     <div

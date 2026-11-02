@@ -155,6 +155,7 @@ const es: Dict = {
     title: "Suelta archivos aquí o haz clic para elegir",
     pdf: "Archivos PDF",
     image: "Imágenes (JPG, PNG, WEBP, GIF, BMP)",
+    imageStill: "Imágenes: JPG, PNG, WebP (solo imágenes fijas)",
     pdfImage: "Un PDF y, para marcas de agua con imagen, una imagen",
     fromLibrary: "Desde la biblioteca",
     release: "Suelta para añadir tus archivos",

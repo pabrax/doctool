@@ -220,6 +220,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           </h2>
           <Dropzone
             accepts={tool.accepts}
+            group={tool.group}
             multiple={!single}
             compact={inputs.length > 0}
             onFiles={addFiles}
