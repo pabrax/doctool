@@ -276,9 +276,9 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
             <AlertCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">
-                {isWrongPassword(run.error) ? t("toolPage.passwordNeeded") : errorText(t, run.error)}
+                {isWrongPassword(run.error) ? t("toolPage.passwordNeeded") : errorText(t, run.error, tool.id)}
               </p>
-              {isWrongPassword(run.error) && <p>{errorText(t, run.error)}</p>}
+              {isWrongPassword(run.error) && <p>{errorText(t, run.error, tool.id)}</p>}
             </div>
           </div>
         )}

@@ -1,7 +1,10 @@
 import {
+  ArrowRightLeft,
   Combine,
+  Crop,
   FileText,
   Hash,
+  ImageDown,
   Images,
   FileImage,
   LayoutGrid,
@@ -9,7 +12,9 @@ import {
   LockOpen,
   Minimize2,
   RotateCw,
+  Scaling,
   Scissors,
+  ShieldCheck,
   Stamp,
   Tag,
   type LucideIcon,
@@ -29,9 +34,14 @@ export const TOOL_ICONS: Record<string, LucideIcon> = {
   pagenumber: Hash,
   protect: Lock,
   unlock: LockOpen,
+  imageconvert: ArrowRightLeft,
+  imagecompress: ImageDown,
+  imageresize: Scaling,
+  imagecrop: Crop,
+  imageclean: ShieldCheck,
 };
 
-export const GROUPS = ["organize", "optimize", "convert", "edit", "security"] as const;
+export const GROUPS = ["organize", "optimize", "convert", "edit", "security", "images"] as const;
 export type Group = (typeof GROUPS)[number];
 
 export const isKnownGroup = (g: string): g is Group => (GROUPS as readonly string[]).includes(g);
