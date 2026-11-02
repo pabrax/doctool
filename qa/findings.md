@@ -18,3 +18,16 @@ Layout/console/network checks passed: home + 5 tools + palette at 3 viewports x 
 | IMG-09 | LOW | dropzone copy for image tools lists GIF/BMP; spec says "JPG, PNG, WebP (still pictures only)". | open |
 | IMG-10 | LOW | home subtitle "Everything stays on this computer" is false for a web deployment. | owner decision |
 | IMG-11 | LOW | at 1280x480 the Images group and the active item sit below the fold of the scrolling sidebar. | backlog (scroll active item into view) |
+
+---
+# Re-audit 2 (HEAD d544168, qa-auditor, transcribed by the orchestrator)
+`QA-AUDIT: findings 3` (0 BLOCKER, 0 HIGH, 2 MEDIUM, 1 LOW). Evidence in `qa/shots/R2_*.png`, downloads `qa/dl3/` (not committed), scripts `web/qa/audit3.mjs`.
+Fix status of audit 1: IMG-01 FIXED, 02 FIXED (compress smaller / kept / resize / convert larger, en+es, no line on multi-file), 03 FIXED, 04 PARTIAL (see R2-01), 05 FIXED, 06 FIXED, 07 FIXED (one POST on double click), 08 NOT FIXED (pre-existing, usable with Tab), 09 FIXED, 10 owner decision, 11 FIXED.
+Newly verified OK: dark theme at 768x1024 all five tools; EXIF Orientation=6 applied (1600x1200 -> 1200x1600) and no Exif marker in the output of clean/compress/resize/convert; keyboard-only imageconvert; no console errors on valid runs.
+Not covered: AVIF and WebP/PNG inputs, screen readers, contrast re-check, 1280x480 tool runs, phone/tablet re-sweep of home and palette, imageclean in es.
+
+| ID | Sev | Finding | Status |
+|---|---|---|---|
+| R2-01 | MEDIUM | imagecrop mode box with empty width/height: generic "Some options are not valid" (422 from the model_validator has loc `body.params`, no field named) | open |
+| R2-02 | MEDIUM | batch of valid + invalid file: whole task fails with "not a picture we can read" without saying WHICH file; valid file gets no result | open (name the file) |
+| R2-03 | LOW | imageclean result shows only the size (no comparison) and the output can be larger than the input without explanation; focus lands on BODY after a result (IMG-08, pre-existing, all tools) | backlog |
