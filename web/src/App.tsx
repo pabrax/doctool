@@ -26,7 +26,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const { t } = useTranslation();
   const { data: tools = [] } = useTools();
   return (
-    <nav aria-label={t("nav.tools")} className="flex h-full flex-col gap-4 overflow-y-auto p-3">
+    <nav aria-label={t("nav.tools")} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
       <NavLink to="/" end className={navLink} onClick={onNavigate}>
         <House aria-hidden className="h-4 w-4" />
         {t("nav.home")}
@@ -76,7 +76,7 @@ function Shell() {
       </a>
       <aside
         className={cn(
-          "w-full shrink-0 border-b border-border bg-surface md:sticky md:top-0 md:block md:h-screen md:w-64 md:border-b-0 md:border-r",
+          "w-full shrink-0 border-b border-border bg-surface md:sticky md:top-0 md:flex md:h-screen md:h-dvh md:flex-col md:w-64 md:border-b-0 md:border-r",
           open ? "block" : "hidden",
         )}
       >
