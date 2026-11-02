@@ -171,6 +171,72 @@ describe("tool flow", () => {
       expect(screen.queryByText(/smaller|larger/)).not.toBeInTheDocument();
     });
 
+    it.each([
+      ["en", "width", 'Check the value of "Width (px)".'],
+      ["en", "height", 'Check the value of "Height (px)".'],
+      ["es", "width", "Revisa el valor de «Ancho (px)»."],
+      ["es", "height", "Revisa el valor de «Alto (px)»."],
+    ])("names the %s label for a box-mode 422 on %s", async (lang, field, text) => {
+      await i18n.changeLanguage(lang);
+      toolRoutes({
+        "GET /tools": { body: [imageTool("imagecrop"), mergeTool] },
+        "POST /tasks": { status: 422, body: { detail: [{ type: "value_error", loc: ["body", "params", field], msg: "Value error, width and height are required in box mode" }] } },
+      });
+      renderApp("/tools/imagecrop");
+      await userEvent.upload(await screen.findByTestId("file-input"), new File(["x"], "p.png", { type: "image/png" }));
+      await userEvent.click(screen.getByRole("button", { name: lang === "es" ? /^ejecutar$/i : /^run$/i }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(text);
+      await i18n.changeLanguage("en");
+    });
+
+    it("names the file that was rejected at upload and keeps the files listed", async () => {
+      let n = 0;
+      toolRoutes({
+        "GET /tools": { body: [{ ...imageTool("imageconvert"), max_files: null, min_files: 1 }, mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+        "POST /tasks/t1/files": () =>
+          ++n === 1
+            ? { status: 201, body: task({ files: [inFile] }) }
+            : { status: 422, body: { detail: { state: "not_image", message: "x" } } },
+        "DELETE /tasks/t1": { status: 204 },
+      });
+      renderApp("/tools/imageconvert");
+      await userEvent.upload(await screen.findByTestId("file-input"), [
+        new File(["x"], "good.png", { type: "image/png" }),
+        new File(["x"], "bad.png", { type: "image/png" }),
+      ]);
+      await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "bad.png: This file is not a picture we can read. Try JPG, PNG or WebP.",
+      );
+      expect(screen.getByText("good.png")).toBeInTheDocument();
+      expect(screen.getByText("bad.png")).toBeInTheDocument();
+    });
+
+    it("names the rejected file in Spanish", async () => {
+      await i18n.changeLanguage("es");
+      let n = 0;
+      toolRoutes({
+        "GET /tools": { body: [{ ...imageTool("imageconvert"), max_files: null, min_files: 1 }, mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+        "POST /tasks/t1/files": () =>
+          ++n === 1
+            ? { status: 201, body: task({ files: [inFile] }) }
+            : { status: 422, body: { detail: { state: "not_image", message: "x" } } },
+        "DELETE /tasks/t1": { status: 204 },
+      });
+      renderApp("/tools/imageconvert");
+      await userEvent.upload(await screen.findByTestId("file-input"), [
+        new File(["x"], "good.png", { type: "image/png" }),
+        new File(["x"], "bad.png", { type: "image/png" }),
+      ]);
+      await userEvent.click(screen.getByRole("button", { name: /^ejecutar$/i }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "bad.png: Este archivo no es una imagen que podamos leer. Prueba con JPG, PNG o WebP.",
+      );
+      await i18n.changeLanguage("en");
+    });
+
     it("maps out_of_range to the crop-area message for image tools", async () => {
       toolRoutes({
         "GET /tools": { body: [imageTool("imagecrop"), mergeTool] },

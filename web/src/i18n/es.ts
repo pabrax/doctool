@@ -198,6 +198,7 @@ const es: Dict = {
     no_images: "El modo imagen necesita una imagen como segundo archivo.",
     too_large: "El archivo o la página es demasiado grande para procesarse.",
     invalid: "Algunas opciones no son válidas.",
+    in_file: "{{file}}: {{reason}}",
     invalid_field: "Revisa el valor de «{{field}}».",
     damaged_image: "Esta imagen parece dañada o incompleta. Prueba con otra copia.",
     unsupported: "Esta imagen no se puede procesar: no se admiten imágenes animadas ni tamaños extremos.",

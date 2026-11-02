@@ -10,6 +10,8 @@ export class ApiError extends Error {
     public state?: string,
     /** Name of the offending parameter for FastAPI validation lists. */
     public field?: string,
+    /** Name of the uploaded file the server rejected, when known. */
+    public file?: string,
   ) {
     super(message);
   }

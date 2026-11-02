@@ -196,6 +196,7 @@ const en = {
     no_images: "Image mode needs an image as the second file.",
     too_large: "The file or page is too large to process.",
     invalid: "Some options are not valid.",
+    in_file: "{{file}}: {{reason}}",
     invalid_field: 'Check the value of "{{field}}".',
     damaged_image: "This picture looks damaged or incomplete. Try another copy.",
     unsupported: "This picture cannot be processed: animated images and extreme sizes are not supported.",
