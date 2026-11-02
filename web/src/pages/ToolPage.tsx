@@ -16,7 +16,7 @@ import { errorText, isWrongPassword } from "@/lib/errors";
 import type { Doc, InputRef, Task, Tool } from "@/lib/types";
 import { toolPath, useTools } from "@/lib/useTools";
 import { nextSteps } from "@/lib/nextSteps";
-import { savedPercent } from "@/lib/savings";
+import { grownPercent, savedPercent } from "@/lib/savings";
 import { formatBytes, uid } from "@/lib/utils";
 
 export function ToolPage() {
@@ -30,6 +30,9 @@ export function ToolPage() {
   // `key` resets the page state whenever the user switches tool.
   return <ToolWorkspace key={tool.id} tool={tool} tools={tools} />;
 }
+
+/** Tools whose result card compares the size before and after. */
+const SIZE_LINE_TOOLS = ["compress", "imagecompress", "imageresize", "imageconvert", "imageclean"];
 
 function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   const { t, i18n } = useTranslation();
@@ -137,6 +140,19 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     queryFn: () => api.version(firstVersionId!),
     enabled: !!firstVersionId,
   });
+
+  /** "x% smaller" for the size-comparing tools; null falls back to the plain size. */
+  const sizeLine = (() => {
+    if (!outVersion || !sizeBefore || !SIZE_LINE_TOOLS.includes(tool.id)) return null;
+    const before = formatBytes(sizeBefore);
+    const after = formatBytes(outVersion.size);
+    const saved = savedPercent(sizeBefore, outVersion.size);
+    if (saved !== null) return t("toolPage.smaller", { pct: saved, before, after });
+    if (tool.id === "compress") return t("toolPage.notSmaller", { before, after });
+    if (tool.id === "imagecompress") return t("toolPage.imageKept", { after });
+    const grown = tool.id === "imageresize" || tool.id === "imageconvert" ? grownPercent(sizeBefore, outVersion.size) : null;
+    return grown !== null ? t("toolPage.larger", { pct: grown, before, after }) : null;
+  })();
 
   const steps = useMemo(() => nextSteps(tool.id, tools), [tool.id, tools]);
   const succeeded = result?.state === "success";
@@ -296,17 +312,10 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
             </p>
             {outVersion && outputs.length === 1 && (
               <p className="tabular mt-1 text-sm font-medium">
-                {tool.id === "compress" && sizeBefore
-                  ? savedPercent(sizeBefore, outVersion.size) !== null
-                    ? t("toolPage.smaller", {
-                        pct: savedPercent(sizeBefore, outVersion.size),
-                        before: formatBytes(sizeBefore),
-                        after: formatBytes(outVersion.size),
-                      })
-                    : t("toolPage.notSmaller", { before: formatBytes(sizeBefore), after: formatBytes(outVersion.size) })
-                  : [outVersion.pages ? t("common.pages", { count: outVersion.pages }) : null, formatBytes(outVersion.size)]
-                      .filter(Boolean)
-                      .join(" · ")}
+                {sizeLine ??
+                  [outVersion.pages ? t("common.pages", { count: outVersion.pages }) : null, formatBytes(outVersion.size)]
+                    .filter(Boolean)
+                    .join(" · ")}
               </p>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">

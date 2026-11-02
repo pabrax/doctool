@@ -5,6 +5,7 @@ import { doc, mergeTool, mockFetch, pdfFile, renderApp, rotateTool, version } fr
 import type { Tool } from "@/lib/types";
 
 const compressTool: Tool = { ...rotateTool, id: "compress", title: "Compress PDF", group: "optimize", description: "Reduce the file size.", params_schema: { properties: {} } };
+const imageTool = (id: string): Tool => ({ ...rotateTool, id, title: id, group: "images", description: "d", accepts: "image", params_schema: { properties: {} } });
 const organizeTool: Tool = { ...rotateTool, id: "organize", title: "Organize pages", description: "Reorder pages." };
 const task = (over = {}) => ({ id: "t1", tool: "merge", params: {}, state: "waiting", error: null, files: [], ...over });
 const inFile = { id: "f1", role: "in", position: 0, filename: "a.pdf", state: "ok", version_id: null, sha256: "x" };
@@ -96,6 +97,56 @@ describe("tool flow", () => {
     await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
     expect(await screen.findByText(/Already well optimized/)).toBeInTheDocument();
     expect(screen.queryByText(/0% smaller/)).not.toBeInTheDocument();
+  });
+
+  describe("image tools size line", () => {
+    const runImage = async (id: string, outSize: number) => {
+      toolRoutes({
+        "GET /tools": { body: [imageTool(id), mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: id }) },
+        "GET /versions/v9": { body: version({ id: "v9", document_id: "d9", size: outSize, pages: null }) },
+      });
+      renderApp(`/tools/${id}`);
+      const pic = new File([new Uint8Array(4096)], "photo.png", { type: "image/png" });
+      await userEvent.upload(await screen.findByTestId("file-input"), pic);
+      await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+    };
+
+    it.each(["imagecompress", "imageresize", "imageconvert", "imageclean"])("%s reports a smaller file", async (id) => {
+      await runImage(id, 1024);
+      expect(await screen.findByText("75% smaller: 4.0 KB → 1.0 KB")).toBeInTheDocument();
+    });
+
+    it("imagecompress treats 'not smaller' as a calm success, not an error", async () => {
+      await runImage("imagecompress", 4096);
+      expect(await screen.findByText("This picture was already as light as it gets, so we kept it as it was: 4.0 KB.")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Download" })).toBeInTheDocument();
+    });
+
+    it.each(["imageconvert", "imageresize"])("%s says 'larger' in plain words", async (id) => {
+      await runImage(id, 6144);
+      expect(await screen.findByText("50% larger: 4.0 KB → 6.0 KB. This is normal when converting to PNG.")).toBeInTheDocument();
+      expect(screen.queryByText(/Already well optimized/)).not.toBeInTheDocument();
+    });
+
+    it("crop shows only the plain size (no before/after line)", async () => {
+      await runImage("imagecrop", 1024);
+      await screen.findByRole("heading", { name: "Done" });
+      expect(screen.queryByText(/smaller|larger/)).not.toBeInTheDocument();
+    });
+
+    it("maps out_of_range to the crop-area message for image tools", async () => {
+      toolRoutes({
+        "GET /tools": { body: [imageTool("imagecrop"), mergeTool] },
+        "POST /tasks": { status: 201, body: task({ tool: "imagecrop" }) },
+        "POST /tasks/t1/process": { status: 400, body: { detail: { type: "ProcessingError", state: "out_of_range", message: "x" } } },
+      });
+      renderApp("/tools/imagecrop");
+      await userEvent.upload(await screen.findByTestId("file-input"), new File(["x"], "p.png", { type: "image/png" }));
+      await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("The crop area is outside the picture.");
+    });
   });
 
   it("a next-step button opens that tool with the result preloaded", async () => {

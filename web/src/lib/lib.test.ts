@@ -81,6 +81,11 @@ describe("errorText", () => {
     await i18n.changeLanguage("en");
   });
 
+  it("home title no longer says PDFs only", () => {
+    expect(en.home.title).toBe("What shall we do with your files?");
+    expect(es.home.title).toBe("¿Qué hacemos con tus archivos?");
+  });
+
   it("neutral quality label and image values exist in both languages", () => {
     expect(en.params.quality).toBe("Quality");
     expect(es.params.quality).toBe("Calidad");

@@ -202,8 +202,14 @@ const en = {
     out_of_image: "The crop area is outside the picture.",
     generic: "Something went wrong.",
   },
+  hints: {
+    imageconvert: { format: "JPG works everywhere. WebP is smaller but some old apps cannot open it." },
+    imagecompress: { preset: "We never return a file bigger than the original." },
+    imageresize: { mode: "Pictures are never enlarged, only reduced." },
+    imagecrop: { ratio: "Keeps the biggest area from the center." },
+  },
   home: {
-    title: "What shall we do with your PDFs?",
+    title: "What shall we do with your files?",
     subtitle: "Pick a tool, or drop a file into your library. Everything stays on this computer.",
     tools: "Tools",
     showDetails: "Show descriptions",

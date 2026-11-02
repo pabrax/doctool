@@ -204,8 +204,14 @@ const es: Dict = {
     out_of_image: "El recuadro queda fuera de la imagen.",
     generic: "Algo salió mal.",
   },
+  hints: {
+    imageconvert: { format: "JPG funciona en todas partes. WebP pesa menos, pero algunos programas antiguos no lo abren." },
+    imagecompress: { preset: "Nunca te devolvemos un archivo más grande que el original." },
+    imageresize: { mode: "Las imágenes nunca se agrandan, solo se reducen." },
+    imagecrop: { ratio: "Conserva la zona más grande desde el centro." },
+  },
   home: {
-    title: "¿Qué hacemos con tus PDF?",
+    title: "¿Qué hacemos con tus archivos?",
     subtitle: "Elige una herramienta o suelta un archivo en tu biblioteca. Todo se queda en este equipo.",
     tools: "Herramientas",
     showDetails: "Mostrar descripciones",

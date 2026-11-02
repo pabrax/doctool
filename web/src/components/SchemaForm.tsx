@@ -60,14 +60,14 @@ export function SchemaForm({ toolId, schema, value, onChange, hide = [] }: Props
         const hintId = `${id}-hint`;
         const label = t(`params.${name}`, { defaultValue: humanize(name) });
         const required = schema.required?.includes(name) ?? false;
-        const hint = prop.description;
+        const hint = t(`hints.${toolId}.${name}`, { defaultValue: prop.description ?? "" }) || undefined;
         const common = { id, "aria-describedby": hint ? hintId : undefined };
 
         let control: React.ReactNode;
         if (prop.type === "boolean") {
           return (
             <div key={name}>
-              <label className="flex items-center gap-2 text-sm text-text" htmlFor={id}>
+              <label className="flex min-h-6 items-center gap-2 text-sm text-text" htmlFor={id}>
                 <input
                   {...common}
                   type="checkbox"
@@ -110,6 +110,7 @@ export function SchemaForm({ toolId, schema, value, onChange, hide = [] }: Props
             <input
               {...common}
               type="number"
+              inputMode={prop.type === "integer" ? "numeric" : "decimal"}
               className={inputClass}
               min={prop.minimum ?? prop.exclusiveMinimum}
               max={prop.maximum ?? prop.exclusiveMaximum}
