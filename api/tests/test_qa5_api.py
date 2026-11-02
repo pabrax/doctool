@@ -91,6 +91,19 @@ def test_task_deleted_while_waiting_for_a_slot_frees_the_slot(client, monkeypatc
     client.app.state.settings.image_slot_wait_seconds = 5
     tid = new_task(client, "imageclean")
     assert upload(client, tid, "a.png", png()).status_code == 201
+    waiting = threading.Event()
+
+    class Probe:
+        """Wraps the semaphore so the test knows the request reached the slot wait."""
+
+        def acquire(self, *a, **kw):
+            waiting.set()
+            return slots.acquire(*a, **kw)
+
+        def release(self):
+            slots.release()
+
+    monkeypatch.setattr(tasks, "_IMAGE_SLOTS", Probe())
     slots.acquire()  # the process request below has to wait for it
     codes = []
     t = threading.Thread(
@@ -99,11 +112,11 @@ def test_task_deleted_while_waiting_for_a_slot_frees_the_slot(client, monkeypatc
         )
     )
     t.start()
-    time.sleep(0.4)
+    assert waiting.wait(5), "the request never reached the slot wait"
     assert client.delete(f"/api/v1/tasks/{tid}").status_code in (200, 204)
     slots.release()
     t.join(10)
-    assert codes and codes[0] in (404, 409)
+    assert codes == [404]
     assert slots.acquire(blocking=False), "the image slot leaked after the task was deleted"
 
 

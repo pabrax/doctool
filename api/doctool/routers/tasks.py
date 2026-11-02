@@ -18,6 +18,7 @@ from fastapi import (
     UploadFile,
 )
 from pydantic import ValidationError
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session
 
 from doctool import library
@@ -227,9 +228,12 @@ def process_task(
     if slotted:
         try:
             db.refresh(task)  # another request may have taken this task while we waited
-        except Exception as exc:  # the task was deleted while we waited for the slot
+        except InvalidRequestError as exc:  # the task was deleted while we waited for the slot
             _IMAGE_SLOTS.release()
             raise HTTPException(404, "task not found") from exc
+        except Exception:
+            _IMAGE_SLOTS.release()
+            raise
         if task.state != "waiting":
             _IMAGE_SLOTS.release()
             raise HTTPException(409, "task is not waiting")
