@@ -194,6 +194,8 @@ const en = {
   errors: {
     network: "Cannot reach the doctool server. Is it running?",
     wrong_password: "The password is missing or incorrect.",
+    too_many_files: "You can process up to {{max}} images at once.",
+    busy: "The server is busy right now. Wait a moment and press Run again.",
     damaged: "The file is damaged or not a valid document.",
     out_of_range: "A page number is outside the document.",
     no_images: "Image mode needs an image as the second file.",

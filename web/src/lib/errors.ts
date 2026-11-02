@@ -14,12 +14,12 @@ const IMAGE_STATE_KEY: Record<string, string> = {
 const humanize = (s: string) => s.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 /** Friendly, translated text for an API error; falls back to the server message. */
-export function errorText(t: TFunction, err: unknown, toolId?: string): string {
-  const reason = reasonText(t, err, toolId);
+export function errorText(t: TFunction, err: unknown, toolId?: string, max?: number | null): string {
+  const reason = reasonText(t, err, toolId, max);
   return err instanceof ApiError && err.file ? t("errors.in_file", { file: err.file, reason, interpolation: { escapeValue: false } }) : reason;
 }
 
-function reasonText(t: TFunction, err: unknown, toolId?: string): string {
+function reasonText(t: TFunction, err: unknown, toolId?: string, max?: number | null): string {
   if (err instanceof ApiError) {
     if (err.state === "invalid") {
       // FastAPI validation text is English: name the field instead of showing it raw.
@@ -29,7 +29,7 @@ function reasonText(t: TFunction, err: unknown, toolId?: string): string {
     const state = err.state && toolId && IMAGE_TOOLS.includes(toolId) ? (IMAGE_STATE_KEY[err.state] ?? err.state) : err.state;
     const key = state ? `errors.${state}` : "";
     if (key) {
-      const text = t(key, { defaultValue: "" });
+      const text = t(key, { defaultValue: "", max });
       if (text) return text;
     }
     return err.message || t("errors.generic");

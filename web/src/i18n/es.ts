@@ -196,6 +196,8 @@ const es: Dict = {
   errors: {
     network: "No se puede conectar con el servidor de doctool. ¿Está en marcha?",
     wrong_password: "Falta la contraseña o es incorrecta.",
+    too_many_files: "Puedes procesar hasta {{max}} imágenes a la vez.",
+    busy: "El servidor está ocupado ahora mismo. Espera un momento y pulsa Ejecutar de nuevo.",
     damaged: "El archivo está dañado o no es un documento válido.",
     out_of_range: "Un número de página está fuera del documento.",
     no_images: "El modo imagen necesita una imagen como segundo archivo.",
