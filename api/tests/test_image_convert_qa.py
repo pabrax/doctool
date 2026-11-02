@@ -470,7 +470,7 @@ def test_c8_hostile_names(client, name):
 
 def test_c8_hostile_names_multi_zip(client):
     data = img_bytes(Image.new("RGB", (8, 8), "red"), "PNG")
-    files = [(n, data) for n in HOSTILE if "\n" not in n]
+    files = [(n, data) for n in HOSTILE if "\n" not in n][:10]  # image_max_files is 10
     res = convert(client, files, format="webp")
     z = zipfile.ZipFile(io.BytesIO(res.content))
     names = z.namelist()
