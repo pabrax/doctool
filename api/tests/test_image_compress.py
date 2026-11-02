@@ -124,7 +124,7 @@ def test_gif_is_never_returned_as_is(client):
     # GIF is converted to PNG, so the original bytes are never handed back (they may hold XMP)
     src = img_bytes(Image.new("P", (4, 4), 1), "GIF")
     out = compress(client, [("tiny.gif", src, "image/gif")])
-    assert out.content != src and out.content[:4] == b"PNG"
+    assert out.content != src and out.content[1:4] == b"PNG"
     assert "tiny.png" in out.headers["content-disposition"]
 
 
