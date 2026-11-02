@@ -51,6 +51,7 @@ class TaskFileOut(BaseModel):
     filename: str
     sha256: str | None
     state: str
+    size: int | None = None
 
 
 class TaskOut(BaseModel):

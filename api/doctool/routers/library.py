@@ -37,7 +37,9 @@ def get_doc_or_404(db: Session, doc_id: str) -> Document:
 async def read_upload(file: UploadFile, settings: Settings) -> bytes:
     data = await file.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
-        raise HTTPException(413, "file too large")
+        raise HTTPException(
+            413, detail={"state": "too_large", "message": "file too large"}
+        )
     return data
 
 

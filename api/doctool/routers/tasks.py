@@ -29,6 +29,7 @@ from doctool.routers.library import read_upload
 from doctool.schemas import ProcessBody, TaskCreate, TaskOut, ToolOut
 from doctool.storage import BlobStore
 from doctool.tools.base import Tool, ToolError, ToolInput, redact, registry, secret_fields
+from doctool.tools.imageutil import InputError
 
 log = logging.getLogger("doctool")
 router = APIRouter(prefix="/api/v1", tags=["tasks"])
@@ -94,9 +95,17 @@ def create_task(
     return task
 
 
+def task_out(task: Task, blobs: BlobStore) -> TaskOut:
+    out = TaskOut.model_validate(task)
+    for f in out.files:
+        if f.sha256:
+            f.size = blobs.size(f.sha256)
+    return out
+
+
 @router.get("/tasks/{task_id}", response_model=TaskOut)
-def get_task(task_id: str, db: Session = Depends(get_db)):
-    return get_task_or_404(db, task_id)
+def get_task(task_id: str, db: Session = Depends(get_db), blobs: BlobStore = Depends(get_blobs)):
+    return task_out(get_task_or_404(db, task_id), blobs)
 
 
 @router.post("/tasks/{task_id}/files", response_model=TaskOut, status_code=201)
@@ -128,6 +137,10 @@ async def add_task_file(
         data = await read_upload(file, settings)
         try:
             tool.check_input(data)
+        except InputError as exc:
+            raise HTTPException(
+                422, detail={"state": exc.state, "message": str(exc)}
+            ) from exc
         except (InvalidPdf, ValueError) as exc:
             raise HTTPException(422, str(exc)) from exc
         tf = TaskFile(
@@ -140,7 +153,7 @@ async def add_task_file(
         raise HTTPException(422, "provide a file or a version_id")
     task.files.append(tf)
     db.commit()
-    return task
+    return task_out(task, blobs)
 
 
 @router.post("/tasks/{task_id}/process")
@@ -211,7 +224,7 @@ def process_task(
     task.error = None
     task.finished_at = datetime.now(UTC)
     db.commit()
-    return TaskOut.model_validate(task)
+    return task_out(task, blobs)
 
 
 def _store_outputs(db, blobs, task, ins, outputs, params, save_to_library):

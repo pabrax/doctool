@@ -91,9 +91,10 @@ def test_box_outside_is_out_of_range_with_size(client):
 
 
 def test_box_missing_size_rejected(client):
-    data = img_bytes(Image.new("RGB", (50, 40)), "PNG")
-    r = crop(client, [("a.png", data, "image/png")], expect=400, mode="box", width=10)
-    assert r.json()["detail"]["state"] == "out_of_range"
+    # now rejected when the task is created (pydantic validator), not at process time
+    body = {"tool": "imagecrop", "params": {"mode": "box", "width": 10}}
+    r = client.post("/api/v1/tasks", json=body)
+    assert r.status_code == 422
 
 
 def test_box_uses_oriented_image(client):

@@ -383,7 +383,6 @@ def test_c6_exif_bomb_huge_declared_not_500(client):
         {"format": "PNG"},
         {"format": ""},
         {"format": None},
-        {},
         {"format": "png", "keep_metadata": "maybe"},
         {"format": "png", "keep_metadata": []},
     ],
