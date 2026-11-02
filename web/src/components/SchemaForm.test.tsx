@@ -30,6 +30,35 @@ function Harness({ schema, onValue }: { schema: ParamsSchema; onValue?: (v: Reco
   );
 }
 
+describe("image form details", () => {
+  const imgSchema: ParamsSchema = {
+    properties: {
+      format: { type: "string", enum: ["jpg", "png"], default: "jpg", description: "English fallback hint" },
+      width: { type: "integer", minimum: 1, default: 1920 },
+      keep_metadata: { type: "boolean", default: false },
+    },
+  };
+  const renderImg = (toolId: string) =>
+    render(<SchemaForm toolId={toolId} schema={imgSchema} value={defaultsFor(imgSchema)} onChange={() => undefined} />);
+
+  it("translates the hint by tool and param, and falls back to the schema description", () => {
+    const { unmount } = renderImg("imageconvert");
+    const select = screen.getByLabelText("Format");
+    const hint = document.getElementById(select.getAttribute("aria-describedby")!)!;
+    expect(hint).toHaveTextContent("JPG works everywhere. WebP is smaller but some old apps cannot open it.");
+    unmount();
+    renderImg("othertool");
+    const sel2 = screen.getByLabelText("Format");
+    expect(document.getElementById(sel2.getAttribute("aria-describedby")!)).toHaveTextContent("English fallback hint");
+  });
+
+  it("number inputs ask for the numeric keyboard and checkbox rows are at least 24px", () => {
+    renderImg("imageresize");
+    expect(screen.getByLabelText("Width (px)")).toHaveAttribute("inputmode", "numeric");
+    expect(screen.getByLabelText("Keep photo info (location, camera)").closest("label")).toHaveClass("min-h-6");
+  });
+});
+
 describe("defaultsFor", () => {
   it("takes schema defaults and leaves optional nulls undefined", () => {
     const d = defaultsFor({

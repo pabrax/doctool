@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 
-export const GROUP_ORDER = ["organize", "optimize", "convert", "edit", "security"] as const;
+export const GROUP_ORDER = ["organize", "optimize", "convert", "edit", "security", "images"] as const;
 
 /** Tools ordered by group (GROUP_ORDER), keeping registry order inside a group; unknown groups last. */
 export function sortByGroup<T extends { group: string }>(tools: T[]): T[] {

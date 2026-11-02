@@ -101,7 +101,7 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact }: 
       />
       {rejected > 0 && (
         <p role="alert" className="text-xs text-danger">
-          {t("errors.damaged")} ({rejected})
+          {accepts === "image" ? t("dropzone.rejectedImage") : t("errors.damaged")} ({rejected})
         </p>
       )}
     </div>

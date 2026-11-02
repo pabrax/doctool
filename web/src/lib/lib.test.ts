@@ -66,6 +66,39 @@ describe("errorText", () => {
     expect(errorText(t, new ApiError(500, "boom"))).toBe("boom");
     expect(errorText(t, new Error("x"))).toBe(en.errors.generic);
   });
+
+  it("uses generic copy for unsupported and image-specific copy for image tools", async () => {
+    await i18n.changeLanguage("en");
+    const t = i18n.t.bind(i18n);
+    expect(errorText(t, new ApiError(400, "x", "unsupported"))).toBe(en.errors.unsupported);
+    expect(errorText(t, new ApiError(400, "x", "out_of_range"))).toBe(en.errors.out_of_range);
+    expect(errorText(t, new ApiError(400, "x", "out_of_range"), "imagecrop")).toBe(en.errors.out_of_image);
+    expect(errorText(t, new ApiError(400, "x", "too_large"), "imageresize")).toBe(en.errors.too_large_image);
+    expect(errorText(t, new ApiError(400, "x", "out_of_range"), "split")).toBe(en.errors.out_of_range);
+    expect(errorText(t, new ApiError(400, "x", "out_of_range"), "imagepdf")).toBe(en.errors.out_of_range);
+    await i18n.changeLanguage("es");
+    expect(errorText(i18n.t.bind(i18n), new ApiError(400, "x", "unsupported"))).toMatch(/no se puede procesar/);
+    await i18n.changeLanguage("en");
+  });
+
+  it("home title no longer says PDFs only", () => {
+    expect(en.home.title).toBe("What shall we do with your files?");
+    expect(es.home.title).toBe("¿Qué hacemos con tus archivos?");
+  });
+
+  it("neutral quality label and image values exist in both languages", () => {
+    expect(en.params.quality).toBe("Quality");
+    expect(es.params.quality).toBe("Calidad");
+    for (const dict of [en, es]) {
+      for (const v of ["fit_box", "exact", "percent", "web", "email", "max", "ratio", "box", "1-1", "4-3", "3-2", "16-9", "webp", "avif"])
+        expect((dict.values as Record<string, string>)[v]).toBeTruthy();
+      for (const p of ["preset", "width", "height", "percent", "ratio", "x", "y", "background", "keep_metadata"])
+        expect((dict.params as Record<string, string>)[p]).toBeTruthy();
+      expect(dict.toolPage.imageKept).toContain("{{after}}");
+      expect(dict.toolPage.larger).toContain("{{pct}}");
+      expect(dict.dropzone.rejectedImage).toBeTruthy();
+    }
+  });
 });
 
 describe("formatBytes", () => {

@@ -17,6 +17,15 @@ const item =
   "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-text aria-selected:bg-surface-2 aria-selected:ring-1 aria-selected:ring-border";
 const heading = "[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted";
 
+/** Everyday words (es/en) that should find a tool even when its title does not contain them. */
+const TOOL_KEYWORDS: Record<string, string[]> = {
+  imageconvert: ["photo", "foto", "jpg", "png", "webp", "avif", "format", "formato"],
+  imagecompress: ["photo", "foto", "jpg", "png", "size", "weight", "tamaño", "peso"],
+  imageresize: ["photo", "foto", "jpg", "png", "size", "tamaño", "width", "ancho"],
+  imagecrop: ["photo", "foto", "jpg", "png", "cut", "recortar"],
+  imageclean: ["photo", "foto", "exif", "gps", "privacy", "privacidad", "metadata", "location", "ubicación"],
+};
+
 export function CommandPalette({ open, onOpenChange }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -64,7 +73,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
           {sortByGroup(tools).map((x) => {
             const title = t(`tools.${x.id}.title`, { defaultValue: x.title });
             return (
-              <Command.Item key={x.id} className={item} value={`${title} ${x.id}`} onSelect={() => go(toolPath(x.id))}>
+              <Command.Item key={x.id} className={item} value={`${title} ${x.id}`} keywords={TOOL_KEYWORDS[x.id]} onSelect={() => go(toolPath(x.id))}>
                 <ToolIcon toolId={x.id} group={x.group} />
                 <span className="flex-1">{title}</span>
                 <span className="text-xs text-muted">{t(`groups.${x.group}`, { defaultValue: x.group })}</span>

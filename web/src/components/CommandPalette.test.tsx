@@ -48,6 +48,30 @@ describe("Command palette", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("finds image tools by everyday words (keywords)", async () => {
+    mockFetch({
+      "GET /tools": {
+        body: [
+          { ...rotateTool, id: "imageconvert", title: "Convert image", group: "images", accepts: "image" },
+          { ...rotateTool, id: "imageclean", title: "Remove photo info", group: "images", accepts: "image" },
+          mergeTool,
+        ],
+      },
+      "GET /documents": { body: [] },
+    });
+    renderApp("/");
+    await screen.findByRole("heading", { level: 1 });
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const input = await screen.findByRole("combobox");
+    await userEvent.type(input, "gps");
+    expect(await screen.findByRole("option", { name: /remove photo info/i })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /convert image/i })).not.toBeInTheDocument();
+    await userEvent.clear(input);
+    await userEvent.type(input, "jpg");
+    expect(await screen.findByRole("option", { name: /convert image/i })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /merge pdf/i })).not.toBeInTheDocument();
+  });
+
   it("has no detectable accessibility violations when open", async () => {
     setup();
     renderApp("/");
