@@ -46,69 +46,122 @@ def target_format(data: bytes) -> str:
     return fmt if fmt in available_formats() else "png"
 
 
-_JPEG_PRIVATE = {0xE1, 0xEB, 0xED, 0xFE}  # APP1 (Exif/XMP/ext. XMP), APP11, APP13, COM
-_PNG_PRIVATE = {b"eXIf", b"tEXt", b"zTXt", b"iTXt", b"tIME"}
-_WEBP_PRIVATE = {b"EXIF", b"XMP "}
+# ALLOWLIST scans of the ORIGINAL bytes: anything not known to be harmless counts as private,
+# and a file we cannot parse is private too (the caller then returns the metadata-free copy).
+_PNG_OK = {
+    b"IHDR", b"PLTE", b"IDAT", b"IEND", b"gAMA", b"cHRM", b"sRGB", b"iCCP", b"pHYs", b"sBIT",
+    b"bKGD", b"tRNS",
+}
+_WEBP_OK = {b"VP8 ", b"VP8L", b"VP8X", b"ALPH", b"ANIM", b"ANMF", b"ICCP"}
+_AVIF_MARKERS = (b"Exif", b"mime", b"jumb", b"rdf+xml", b"xmp", b"XMP", b"c2pa", b"cabx")
 
 
 def _jpeg_private(data: bytes) -> bool:
     pos, n = 2, len(data)
-    while pos + 4 <= n:
+    while pos + 2 <= n:
         if data[pos] != 0xFF:
-            return True  # malformed: do not trust it
+            return True  # malformed or stray bytes: do not trust it
         marker = data[pos + 1]
         if marker == 0xFF:
             pos += 1
             continue
-        if marker in _JPEG_PRIVATE:
-            return True
-        if marker in (0xDA, 0xD9):  # scan data / end: headers are over
-            return False
+        if marker == 0xD9:  # EOI: nothing may follow
+            return pos + 2 != n
         if marker == 0x01 or 0xD0 <= marker <= 0xD8:
             pos += 2
             continue
-        pos += 2 + int.from_bytes(data[pos + 2 : pos + 4], "big")
+        if pos + 4 > n:
+            return True
+        end = pos + 2 + int.from_bytes(data[pos + 2 : pos + 4], "big")
+        if end > n:
+            return True
+        payload = data[pos + 4 : end]
+        if marker == 0xE0:
+            if not payload.startswith(b"JFIF"):
+                return True
+        elif marker == 0xE2:
+            if not payload.startswith(b"ICC_PROFILE"):
+                return True
+        elif 0xE1 <= marker <= 0xEF and marker != 0xEE or marker == 0xFE:
+            return True  # APP1..APP15 (except Adobe APP14) and comments
+        pos = end
+        if marker == 0xDA:  # skip entropy-coded data up to the next real marker
+            while True:
+                pos = data.find(bytes([0xFF]), pos)
+                if pos < 0 or pos + 1 >= n:
+                    return True
+                nxt = data[pos + 1]
+                if nxt == 0 or nxt == 0xFF or 0xD0 <= nxt <= 0xD7:
+                    pos += 1 if nxt == 0xFF else 2
+                    continue
+                break
     return True
 
 
 def _png_private(data: bytes) -> bool:
     pos, n = 8, len(data)
-    while pos + 8 <= n:
+    while pos + 12 <= n:
         size = int.from_bytes(data[pos : pos + 4], "big")
-        if data[pos + 4 : pos + 8] in _PNG_PRIVATE:
+        kind = data[pos + 4 : pos + 8]
+        if kind not in _PNG_OK or pos + 12 + size > n:
             return True
         pos += 12 + size
-    return False
+        if kind == b"IEND":
+            return pos != n  # nothing may follow
+    return True
 
 
 def _webp_private(data: bytes) -> bool:
     pos, n = 12, len(data)
-    while pos + 8 <= n:
-        if data[pos : pos + 4] in _WEBP_PRIVATE:
+    while pos < n:
+        if pos + 8 > n or data[pos : pos + 4] not in _WEBP_OK:
             return True
-        pos += 8 + int.from_bytes(data[pos + 4 : pos + 8], "little") + (
-            int.from_bytes(data[pos + 4 : pos + 8], "little") & 1
-        )
+        size = int.from_bytes(data[pos + 4 : pos + 8], "little")
+        if pos + 8 + size > n:
+            return True
+        pos += 8 + size + (size & 1)
     return False
 
 
+def _avif_private(data: bytes) -> bool:
+    pos, n = 0, len(data)
+    seen = set()
+    while pos < n:
+        if pos + 8 > n:
+            return True
+        size = int.from_bytes(data[pos : pos + 4], "big")
+        kind = data[pos + 4 : pos + 8]
+        head = 8
+        if size == 1:
+            size, head = int.from_bytes(data[pos + 8 : pos + 16], "big"), 16
+        elif size == 0:
+            size = n - pos
+        if kind not in (b"ftyp", b"meta", b"mdat") or size < head or pos + size > n:
+            return True
+        if kind == b"meta" and any(m in data[pos : pos + size] for m in _AVIF_MARKERS):
+            return True
+        seen.add(kind)
+        pos += size
+    return not {b"ftyp", b"meta"} <= seen
+
+
 def has_private_metadata(data: bytes) -> bool:
-    """Byte-level scan of the ORIGINAL file for EXIF, XMP, comments or text chunks.
+    """Allowlist scan of the ORIGINAL file: True unless it carries only known-harmless parts.
 
     True also when the file is not JPEG/PNG/WebP/AVIF (GIF, BMP, TIFF, MPO are re-encoded to
-    another format anyway, so their original bytes are never handed back).
+    another format anyway, so their original bytes are never handed back) or cannot be parsed.
     """
     with open_image(data) as img:
         fmt = img.format
-    if fmt == "JPEG":
-        return _jpeg_private(data)
-    if fmt == "PNG":
-        return _png_private(data)
-    if fmt == "WEBP":
-        return _webp_private(data)
-    if fmt == "AVIF":
-        return b"Exif" in data or b"rdf+xml" in data or b"<x:xmpmeta" in data
-    return True
+    scan = {
+        "JPEG": _jpeg_private, "PNG": _png_private, "WEBP": _webp_private, "AVIF": _avif_private,
+    }.get(fmt or "")
+    if scan is None:
+        return True
+    try:
+        return scan(data)
+    except (IndexError, ValueError):
+        return True
 
 
 def check_image(data: bytes) -> None:
@@ -116,8 +169,18 @@ def check_image(data: bytes) -> None:
     verify_image(data, imageutil.IMAGE_MAX_PIXELS)
 
 
-def preflight(inputs: list[ToolInput], per_image_cap: int | None = None) -> None:
-    """Enforce the pixel caps from the headers alone, before anything is decoded."""
+_TASK_CAP = object()
+
+
+def preflight(
+    inputs: list[ToolInput],
+    per_image_cap: int | None = None,
+    task_cap: "int | None | object" = _TASK_CAP,
+) -> None:
+    """Enforce the pixel caps from the headers alone, before anything is decoded.
+
+    `task_cap` is the limit on the summed pixels; None switches the task-wide check off.
+    """
     cap = per_image_cap or imageutil.IMAGE_MAX_PIXELS
     total = 0
     for item in inputs:
@@ -140,11 +203,12 @@ def preflight(inputs: list[ToolInput], per_image_cap: int | None = None) -> None
                 file=item.name,
             )
         total += pixels
-        if total > imageutil.IMAGE_TASK_MAX_PIXELS:
+        limit = imageutil.IMAGE_TASK_MAX_PIXELS if task_cap is _TASK_CAP else task_cap
+        if limit is not None and total > limit:
             raise ToolError(
                 "too_large",
                 f"the pictures are too big to process together; '{item.name}' goes over "
-                f"the limit of {imageutil.IMAGE_TASK_MAX_PIXELS / 1e6:.0f} megapixels in total",
+                f"the limit of {limit / 1e6:.0f} megapixels in total",
                 file=item.name,
             )
 

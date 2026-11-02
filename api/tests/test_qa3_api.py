@@ -195,6 +195,7 @@ def test_image_concurrency_is_bounded(client, monkeypatch):
     from doctool.tools.base import registry
 
     monkeypatch.setattr(tasks, "_IMAGE_SLOTS", threading.BoundedSemaphore(2))
+    client.app.state.settings.image_slot_wait_seconds = 5  # this test is about the bound, not 503
     lock = threading.Lock()
     state = {"now": 0, "max": 0}
 

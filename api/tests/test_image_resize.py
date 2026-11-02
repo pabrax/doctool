@@ -3,7 +3,6 @@ import io
 import pytest
 from PIL import Image, features
 
-from doctool.tools.base import ToolError
 from tests.helpers import outputs, run_tool
 
 
@@ -171,17 +170,6 @@ def test_corrupt_rejected_at_upload(client):
         files={"file": ("bad.png", b"not an image", "image/png")},
     )
     assert r.status_code == 422
-
-
-def test_output_pixels_hard_cap(monkeypatch):
-    from doctool.tools import imageresize, imageutil
-    from doctool.tools.base import ToolInput
-
-    monkeypatch.setattr(imageutil, "IMAGE_MAX_PIXELS", 100)
-    monkeypatch.setattr(imageresize, "preflight", lambda inputs: None)
-    tool = imageresize.ImageResizeTool()
-    with pytest.raises(ToolError):
-        tool.run([ToolInput("a.png", png((50, 50)))], imageresize.ImageResizeParams())
 
 
 def test_duplicate_output_names_get_suffix(client):

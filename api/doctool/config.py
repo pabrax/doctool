@@ -21,7 +21,7 @@ class Settings(BaseModel):
     image_task_max_pixels: int = 100_000_000  # sum over the files of one task
     image_max_files: int = 10
     image_concurrency: int = 2  # image tasks decoding at the same time
-    image_slot_wait_seconds: float = 2.0  # how long a request waits for a free image slot
+    image_slot_wait_seconds: float = 0.5  # how long a request waits for a free image slot
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
