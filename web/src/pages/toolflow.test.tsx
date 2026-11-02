@@ -319,6 +319,7 @@ describe("tool flow", () => {
 
 describe("max_files", () => {
   const limited = { ...imageTool("imageconvert"), max_files: 3, min_files: 1 };
+  const formatSelect = () => document.querySelector('option[value="png"]')!.parentElement as HTMLSelectElement;
   const pics = (n: number) => Array.from({ length: n }, (_, i) => new File(["x"], `p${i + 1}.png`, { type: "image/png" }));
 
   it.each([
@@ -348,18 +349,22 @@ describe("max_files", () => {
     ["es", "busy", 503, /^ejecutar$/i, "El servidor está ocupado ahora mismo. Espera un momento y pulsa Ejecutar de nuevo."],
   ])("maps %s %s (%i) and stays retryable", async (lang, state, status, runName, text) => {
     await i18n.changeLanguage(lang);
+    const withFormat = {
+      ...limited,
+      params_schema: { properties: { format: { type: "string", enum: ["jpg", "png"], default: "jpg" } } },
+    };
     toolRoutes({
-      "GET /tools": { body: [limited, mergeTool] },
+      "GET /tools": { body: [withFormat, mergeTool] },
       "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
       "POST /tasks/t1/process": { status, body: { detail: { state, message: "x", retryable: state === "busy" } } },
       "DELETE /tasks/t1": { status: 204 },
     });
     renderApp("/tools/imageconvert");
     await userEvent.upload(await screen.findByTestId("file-input"), pics(2));
-    await userEvent.selectOptions(screen.getByRole("combobox"), "png");
+    await userEvent.selectOptions(formatSelect(), "png");
     await userEvent.click(screen.getByRole("button", { name: runName }));
     expect(await screen.findByRole("alert")).toHaveTextContent(text);
-    expect(screen.getByRole("combobox")).toHaveValue("png"); // the option survives the failed run
+    expect(formatSelect()).toHaveValue("png"); // the option survives the failed run
     expect(screen.getByRole("button", { name: runName })).toBeEnabled();
     expect(screen.getByText("p1.png")).toBeInTheDocument();
     expect(screen.getByText("p2.png")).toBeInTheDocument();
