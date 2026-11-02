@@ -21,6 +21,7 @@ research: [`docs/RESEARCH.md`](docs/RESEARCH.md) · feature summary: [`docs/SUMM
 | Convert | Images → PDF, PDF → images (PNG/JPG) |
 | Edit | Watermark (text or image), page numbers, metadata editor |
 | Security | Protect (AES-256), Unlock |
+| Images | Convert (JPG/PNG/WebP, AVIF when your Pillow supports it), Compress (web / email / maximum, never returns a bigger file), Resize, Crop (aspect ratio or pixel box), Remove photo info (EXIF/GPS). Pillow only, still pictures only, metadata removed by default |
 | Library | Every output is a new *version* of its document; history, preview, tags, rename |
 | UX | Ctrl+K command palette, English/Spanish, light/dark, keyboard accessible (axe-checked) |
 
@@ -57,6 +58,11 @@ Data lives in `api/data/` (SQLite + content-addressed blobs) unless `DOCTOOL_DAT
 | `DOCTOOL_HOST` | `127.0.0.1` | bind address. Anything else needs `DOCTOOL_ALLOW_LAN=1` |
 | `DOCTOOL_ALLOWED_HOSTS` | `127.0.0.1,localhost` | accepted `Host` headers (anti DNS-rebinding) |
 | `DOCTOOL_WEB_DIR` | `web/dist` if present | built UI to serve |
+| `DOCTOOL_IMAGE_MAX_PIXELS` | `50000000` | largest single picture the image tools accept (about 50 MP) |
+| `DOCTOOL_IMAGE_TASK_MAX_PIXELS` | `100000000` | total pixels of one image task |
+| `DOCTOOL_IMAGE_MAX_FILES` | `10` | pictures per image task |
+| `DOCTOOL_IMAGE_CONCURRENCY` | `2` | image jobs running at once; others get a retryable 503 "busy" |
+| `DOCTOOL_IMAGE_SLOT_WAIT_SECONDS` | `0.5` | how long a request waits for a free image slot |
 
 ## Develop
 
@@ -98,6 +104,7 @@ doctool is a single-user local app with **no login**, so exposure is what protec
 
 ## Known limits (honest list)
 
+* **Image tools** read JPEG, PNG, WebP, AVIF, GIF, BMP and TIFF (other formats Pillow knows, such as EPS, are refused on purpose). Animated pictures are rejected. Processing is synchronous and in memory, so the caps above matter on a public server. Video and GIF to WebM are not part of this version.
 * **Compression** recompresses images with Pillow; Ghostscript (stronger) is not integrated yet.
 * **Tools output unprotected files**: if you give a password to a tool, the result is not encrypted
   again; use *Protect* as the last step.
