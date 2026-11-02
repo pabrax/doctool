@@ -3,8 +3,10 @@
 # Side-effect imports: each module registers its tool.
 from doctool.tools import (  # noqa: F401,I001
     compress,
+    imageclean,
     imagecompress,
     imageconvert,
+    imagecrop,
     imagepdf,
     imageresize,
     merge,
