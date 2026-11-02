@@ -203,7 +203,7 @@ def test_image_concurrency_is_bounded(client, monkeypatch):
         with lock:
             state["now"] += 1
             state["max"] = max(state["max"], state["now"])
-        time.sleep(0.15)
+        time.sleep(0.6)
         with lock:
             state["now"] -= 1
         return [ToolOutput("o.png", inputs[0].data)]
