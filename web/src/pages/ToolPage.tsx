@@ -90,6 +90,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     if (removed) undoRef.current?.focus();
   }, [removed]);
 
+  /** Set synchronously on submit so a rapid double click cannot start two tasks before `isPending` renders. */
+  const submitting = useRef(false);
   const run = useMutation<Task, unknown, void>({
     mutationFn: async () => {
       const task = await api.createTask(tool.id, params);
@@ -111,6 +113,9 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
       setSizeBefore(inputs.length === 1 ? (inputs[0].size ?? null) : null);
       setNeedPassword(new Set());
       void qc.invalidateQueries({ queryKey: ["documents"] });
+    },
+    onSettled: () => {
+      submitting.current = false;
     },
     onError: (err) => {
       if (isWrongPassword(err)) {
@@ -267,7 +272,9 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (canRun) run.mutate();
+              if (!canRun || submitting.current) return;
+              submitting.current = true;
+              run.mutate();
             }}
             className="grid gap-4"
           >

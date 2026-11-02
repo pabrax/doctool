@@ -184,6 +184,17 @@ describe("tool flow", () => {
     });
   });
 
+  it("a rapid double click on Run creates only one task", async () => {
+    const calls = toolRoutes();
+    renderApp("/tools/merge");
+    await userEvent.upload(await screen.findByTestId("file-input"), [pdfFile("a.pdf"), pdfFile("b.pdf")]);
+    const run = screen.getByRole("button", { name: /^run$/i });
+    run.click();
+    run.click();
+    expect(await screen.findByRole("heading", { name: "Done" })).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "POST" && c.path === "/tasks")).toHaveLength(1);
+  });
+
   it("a next-step button opens that tool with the result preloaded", async () => {
     toolRoutes();
     renderApp("/tools/merge");
