@@ -317,6 +317,54 @@ describe("tool flow", () => {
   });
 });
 
+describe("max_files", () => {
+  const limited = { ...imageTool("imageconvert"), max_files: 3, min_files: 1 };
+  const pics = (n: number) => Array.from({ length: n }, (_, i) => new File(["x"], `p${i + 1}.png`, { type: "image/png" }));
+
+  it.each([
+    ["en", /^run$/i, "You can process up to 3 images at once. Remove 1 to continue."],
+    ["es", /^ejecutar$/i, "Puedes procesar hasta 3 imágenes a la vez. Quita 1 para continuar."],
+  ])("disables Run and shows a hint when too many files are added (%s)", async (lang, runName, hint) => {
+    await i18n.changeLanguage(lang);
+    toolRoutes({ "GET /tools": { body: [limited, mergeTool] } });
+    renderApp("/tools/imageconvert");
+    const input = await screen.findByTestId("file-input");
+    await userEvent.upload(input, pics(3));
+    expect(screen.getByRole("button", { name: runName })).toBeEnabled();
+    await userEvent.upload(input, pics(1).map((f) => new File(["x"], "p4.png", { type: f.type })));
+    expect(screen.getByText(hint)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: runName })).toBeDisabled();
+    expect(screen.getByText("p4.png")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: lang === "es" ? "Quitar: p4.png" : "Remove: p4.png" }));
+    expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: runName })).toBeEnabled();
+    await i18n.changeLanguage("en");
+  });
+
+  it.each([
+    ["en", "too_many_files", 422, /^run$/i, "You can process up to 3 images at once."],
+    ["es", "too_many_files", 422, /^ejecutar$/i, "Puedes procesar hasta 3 imágenes a la vez."],
+    ["en", "busy", 503, /^run$/i, "The server is busy right now. Wait a moment and press Run again."],
+    ["es", "busy", 503, /^ejecutar$/i, "El servidor está ocupado ahora mismo. Espera un momento y pulsa Ejecutar de nuevo."],
+  ])("maps %s %s (%i) and stays retryable", async (lang, state, status, runName, text) => {
+    await i18n.changeLanguage(lang);
+    toolRoutes({
+      "GET /tools": { body: [limited, mergeTool] },
+      "POST /tasks": { status: 201, body: task({ tool: "imageconvert" }) },
+      "POST /tasks/t1/process": { status, body: { detail: { state, message: "x", retryable: state === "busy" } } },
+      "DELETE /tasks/t1": { status: 204 },
+    });
+    renderApp("/tools/imageconvert");
+    await userEvent.upload(await screen.findByTestId("file-input"), pics(2));
+    await userEvent.click(screen.getByRole("button", { name: runName }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(text);
+    expect(screen.getByRole("button", { name: runName })).toBeEnabled();
+    expect(screen.getByText("p1.png")).toBeInTheDocument();
+    expect(screen.getByText("p2.png")).toBeInTheDocument();
+    await i18n.changeLanguage("en");
+  });
+});
+
 describe("home", () => {
   it("on phones a toggle shows the descriptions in one column", async () => {
     mockFetch({ "GET /tools": { body: [mergeTool, compressTool] }, "GET /documents": { body: [] } });

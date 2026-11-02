@@ -143,7 +143,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   ]
     .filter(Boolean)
     .join(" · ");
-  const canRun = missing === 0 && !run.isPending;
+  const extra = tool.max_files != null ? Math.max(0, inputs.length - tool.max_files) : 0;
+  const canRun = missing === 0 && extra === 0 && !run.isPending;
   const result = run.data;
   const outputs = useMemo(() => result?.files.filter((f) => f.role === "out") ?? [], [result]);
   const firstVersionId = outputs.find((f) => f.version_id)?.version_id ?? null;
@@ -291,6 +292,11 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           >
             <SchemaForm toolId={tool.id} schema={tool.params_schema} value={params} onChange={setParams} />
             {missing > 0 && <p className="text-xs text-muted">{t("toolPage.needMore", { count: missing })}</p>}
+            {extra > 0 && (
+              <p className="text-xs text-danger">
+                {t(tool.accepts === "image" ? "toolPage.tooManyImages" : "toolPage.tooManyFiles", { max: tool.max_files, extra })}
+              </p>
+            )}
             <Button type="submit" variant="primary" disabled={!canRun}>
               {run.isPending ? (
                 <>

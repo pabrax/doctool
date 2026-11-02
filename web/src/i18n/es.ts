@@ -167,6 +167,8 @@ const es: Dict = {
     options: "Opciones",
     needMore_one: "Añade {{count}} archivo más para continuar.",
     needMore_other: "Añade {{count}} archivos más para continuar.",
+    tooManyImages: "Puedes procesar hasta {{max}} imágenes a la vez. Quita {{extra}} para continuar.",
+    tooManyFiles: "Puedes procesar hasta {{max}} archivos a la vez. Quita {{extra}} para continuar.",
     fileCount_one: "{{count}} archivo",
     fileCount_other: "{{count}} archivos",
     clearAll: "Quitar todos",

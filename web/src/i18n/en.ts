@@ -165,6 +165,8 @@ const en = {
     options: "Options",
     needMore_one: "Add {{count}} more file to continue.",
     needMore_other: "Add {{count}} more files to continue.",
+    tooManyImages: "You can process up to {{max}} images at once. Remove {{extra}} to continue.",
+    tooManyFiles: "You can process up to {{max}} files at once. Remove {{extra}} to continue.",
     fileCount_one: "{{count}} file",
     fileCount_other: "{{count}} files",
     clearAll: "Remove all",
