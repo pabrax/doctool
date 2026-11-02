@@ -203,7 +203,6 @@ const es: Dict = {
     invalid_field: "Revisa el valor de «{{field}}».",
     damaged_image: "Esta imagen parece dañada o incompleta. Prueba con otra copia.",
     unsupported: "Esta imagen no se puede procesar: no se admiten imágenes animadas ni tamaños extremos.",
-    animated: "Las imágenes animadas no se admiten. Usa una imagen fija (este archivo tiene varios fotogramas).",
     not_image: "Este archivo no es una imagen que podamos leer. Prueba con JPG, PNG o WebP.",
     too_large_image: "Esta imagen es demasiado grande. Prueba con una más pequeña.",
     out_of_image: "El recuadro queda fuera de la imagen.",

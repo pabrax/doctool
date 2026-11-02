@@ -201,7 +201,6 @@ const en = {
     invalid_field: 'Check the value of "{{field}}".',
     damaged_image: "This picture looks damaged or incomplete. Try another copy.",
     unsupported: "This picture cannot be processed: animated images and extreme sizes are not supported.",
-    animated: "Animated images are not supported. Use a still picture (this file has several frames).",
     not_image: "This file is not a picture we can read. Try JPG, PNG or WebP.",
     too_large_image: "This picture is too large to process. Try a smaller one.",
     out_of_image: "The crop area is outside the picture.",
