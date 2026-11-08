@@ -12,7 +12,7 @@ import { ToolIcon } from "@/components/ToolIcon";
 import { cardClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { isKnownGroup, toolIcon } from "@/lib/toolIcons";
-import { errorText, isBusy, isWrongPassword, OFFICE_TOOLS } from "@/lib/errors";
+import { errorText, isBusy, isWrongPassword } from "@/lib/errors";
 import type { Doc, InputRef, Task, TaskWarning, Tool } from "@/lib/types";
 import { takesPdf, toolPath, useTools } from "@/lib/useTools";
 import { nextSteps } from "@/lib/nextSteps";
@@ -355,7 +355,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
                   {t("common.running")}
                 </>
-              ) : needPassword.size > 0 || (run.isError && isBusy(run.error) && OFFICE_TOOLS.includes(tool.id)) ? (
+              ) : needPassword.size > 0 || (run.isError && isBusy(run.error) && tool.group === "office") ? (
                 t("common.retry")
               ) : (
                 t("common.run")

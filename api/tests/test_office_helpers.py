@@ -202,3 +202,57 @@ def test_html_sanitize_landscape_and_no_backgrounds():
     low = out.lower()
     assert b"size: 279.4mm 215.9mm" in low
     assert b"background: none" in low
+
+
+def test_xlsx_sheet_numbers_count_only_visible_tabs():
+    wb = Workbook()
+    wb.active.title = "First"
+    wb.create_sheet("Hidden").sheet_state = "hidden"
+    wb.create_sheet("Third")["A1"] = "x"
+    buf = io.BytesIO()
+    wb.save(buf)
+    data, info = ooxml.xlsx_page_setup(
+        buf.getvalue(), sheets=["2"], orientation="auto", fit_width=False, fit_sheet=False
+    )
+    out = load_workbook(io.BytesIO(data))
+    assert out["Third"].sheet_state == "visible" and out["First"].sheet_state == "hidden"
+    assert info.visible == 1
+
+
+def test_html_auto_orientation_lets_the_page_decide():
+    page = b"<html><head><style>@page { size: A4 landscape }</style></head><body>x</body></html>"
+    out, _ = htmlsafe.sanitize(page, page_size="a4", orientation="auto", backgrounds=True)
+    low = out.lower()
+    # ours first, so theirs wins
+    assert low.index(b"size: 210mm 297mm") < low.index(b"size: a4 landscape")
+    out, _ = htmlsafe.sanitize(page, page_size="a4", orientation="portrait", backgrounds=True)
+    low = out.lower()
+    assert low.index(b"size: 210mm 297mm") > low.index(b"size: a4 landscape")  # explicit: ours wins
+
+
+def test_neutralize_external_handles_single_quotes():
+    d = Document()
+    buf = io.BytesIO()
+    d.save(buf)
+    p = parts(buf.getvalue())
+    p["word/_rels/document.xml.rels"] = p["word/_rels/document.xml.rels"].replace(
+        b"</Relationships>",
+        b"<Relationship Id='rIdQ' Type='http://schemas.openxmlformats.org/officeDocument/2006/"
+        b"relationships/image' Target='http://evil.example/q.png' TargetMode='External'/>"
+        b"</Relationships>",
+    )
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        for n, b in p.items():
+            z.writestr(n, b)
+    data, blocked = ooxml.neutralize_external(out.getvalue())
+    assert blocked == 1 and b"evil.example" not in parts(data)["word/_rels/document.xml.rels"]
+
+
+def test_html_srcset_is_always_dropped():
+    out, _ = htmlsafe.sanitize(
+        b"<img src='data:image/png;base64,AA==' "
+        b"srcset='data:image/png;base64,AA== 1x, http://x/y.png 2x'>",
+        page_size="a4", orientation="auto", backgrounds=True,
+    )
+    assert b"srcset" not in out.lower() and b"http://x" not in out

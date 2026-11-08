@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextlib
 import os
 import posixpath
-import re
 import shutil
 import signal
 import subprocess
@@ -37,7 +36,6 @@ MACRO_EXT = {"docm", "xlsm", "pptm", "dotm", "xltm", "potm", "ppsm", "xlam"}
 
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _ENCRYPTED_PACKAGE = "EncryptedPackage".encode("utf-16-le")
-_XML_SNIFF = 64 * 1024  # bytes of each XML part scanned for DTD/entity declarations
 
 
 _PWD_MSG = "the file is password protected; remove the password first"
@@ -112,6 +110,7 @@ def guard_package(
     if ext not in ZIPPED:
         if ext in {"doc", "xls", "ppt"} and not data.startswith(_OLE_MAGIC):
             raise OfficeError("damaged", "not a valid legacy Office file")
+        sniff_flat(data, ext)
         return report
     if data.startswith(_OLE_MAGIC):
         if _ENCRYPTED_PACKAGE in data[:1_000_000]:
@@ -130,24 +129,86 @@ def guard_package(
         if total > max_uncompressed or total / packed > max_ratio:
             raise OfficeError("too_large", "the document expands to an unsafe size")
         for info in infos:
+            # Per entry too: stored padding must not hide one hugely compressed part.
+            ratio = info.file_size / max(1, info.compress_size)
+            if info.file_size > _BIG_ENTRY and ratio > max_ratio:
+                raise OfficeError("too_large", "the document expands to an unsafe size")
             name = info.filename
-            if name.startswith("/") or ".." in name.split("/"):
+            if name.startswith("/") or "\\" in name or ".." in name.split("/"):
                 raise OfficeError("unsafe", "the document contains an unsafe path")
             if info.flag_bits & 0x1:
                 raise OfficeError("wrong_password", _PWD_MSG)
             low = name.lower()
-            if low.endswith("vbaproject.bin") or low.startswith("macros/") or "/basic/" in low:
+            if (low.endswith("vbaproject.bin") or low.startswith(_ODF_SCRIPT_DIRS)
+                    or "/basic/" in low):
                 raise OfficeError("macro", _MACRO_MSG)
             if low.endswith((".xml", ".rels")):
-                head = zf.open(info).read(_XML_SNIFF)
-                if b"<!ENTITY" in head or (b"<!DOCTYPE" in head and b"[" in head):
+                if _declares_entities(zf, info):
                     raise OfficeError("unsafe", "the document contains XML entity declarations")
-                if low == "[content_types].xml" and b"macroenabled" in head.lower():
-                    raise OfficeError("macro", _MACRO_MSG)
-                if low.endswith(".rels") and re.search(rb'TargetMode="External"', head):
+                if low == "[content_types].xml":
+                    if b"macroenabled" in zf.read(info).lower():
+                        raise OfficeError("macro", _MACRO_MSG)
+                if low.endswith(".rels") and _has_external_rel(zf.read(info)):
                     if "external_links" not in report.warnings:
                         report.warnings.append("external_links")
     return report
+
+
+_BIG_ENTRY = 10 * 1024 * 1024
+_ODF_SCRIPT_DIRS = ("macros/", "basic/", "scripts/")
+_SCAN_CHUNK = 256 * 1024
+_ENTITY_MARKERS = (b"<!ENTITY", b"<!DOCTYPE")
+
+
+def _declares_entities(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bool:
+    """Scan the whole XML part in chunks (constant memory) for a DTD, in UTF-8 or UTF-16."""
+    markers = list(_ENTITY_MARKERS)
+    markers += [m.decode().encode("utf-16-le") for m in _ENTITY_MARKERS]
+    markers += [m.decode().encode("utf-16-be") for m in _ENTITY_MARKERS]
+    keep = max(len(m) for m in markers)
+    tail = b""
+    with zf.open(info) as fh:
+        while chunk := fh.read(_SCAN_CHUNK):
+            window = tail + chunk
+            if any(m in window for m in markers):
+                return True
+            tail = window[-keep:]
+    return False
+
+
+def _has_external_rel(content: bytes) -> bool:
+    """Parse the .rels (any quoting or encoding) instead of matching bytes."""
+    from lxml import etree
+
+    try:
+        root = etree.fromstring(content, etree.XMLParser(resolve_entities=False, no_network=True))
+    except etree.XMLSyntaxError:
+        return False
+    return any(el.get("TargetMode") == "External" for el in root.iter())
+
+
+# Flat formats are read by LibreOffice from their content, so a package or binary renamed to
+# .txt/.rtf/.csv/.html would skip the package guards: check what the bytes really are.
+_PACKAGE_OR_BINARY = (b"PK\x03\x04", _OLE_MAGIC)
+
+
+def sniff_flat(data: bytes, ext: str) -> None:
+    head = data[:16].lstrip(b"\xef\xbb\xbf")
+    if ext == "rtf":
+        if not head.startswith(b"{\\rtf"):
+            raise OfficeError("damaged", "not a valid RTF document")
+    elif ext in ("txt", "csv", "html", "htm"):
+        if head.startswith(_PACKAGE_OR_BINARY) or head.startswith(b"{\\rtf"):
+            raise OfficeError("unsupported", "the file content does not match its extension")
+
+
+# Import filter per extension: LibreOffice must not pick a different format from the content.
+INFILTERS = {
+    "docx": "MS Word 2007 XML", "doc": "MS Word 97", "odt": "writer8", "rtf": "Rich Text Format",
+    "txt": "Text (encoded):UTF8", "html": "HTML (StarWriter)", "htm": "HTML (StarWriter)",
+    "xlsx": "Calc MS Excel 2007 XML", "xls": "MS Excel 97", "ods": "calc8",
+    "pptx": "Impress MS PowerPoint 2007 XML", "ppt": "MS PowerPoint 97", "odp": "impress8",
+}
 
 
 # ---------- profile ----------
@@ -161,15 +222,46 @@ _MACRO_LOCK = (
     '<prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>\n'
     '<item oor:path="/org.openoffice.Office.Common/Misc">'
     '<prop oor:name="FirstRun" oor:op="fuse"><value>false</value></prop></item>\n'
-    "</oor:items>\n"
+    # No fetching of linked content. Measured on LibreOffice 26.8 with a legacy .doc that links
+    # an image over http and from file:///: with neither setting LibreOffice fetched both; each
+    # setting alone stopped only one; together: 0 requests, nothing embedded (RESEARCH.md).
+    '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
+    '<prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>\n'
+    + "".join(
+        f'<item oor:path="/org.openoffice.Inet/Settings"><prop oor:name="{k}" oor:op="fuse">'
+        f"<value>{v}</value></prop></item>\n"
+        for k, v in (
+            ("ooInetProxyType", "2"),  # manual proxy ...
+            ("ooInetHTTPProxyName", "127.0.0.1"),  # ... that does not exist (discard port)
+            ("ooInetHTTPProxyPort", "9"),
+            ("ooInetHTTPSProxyName", "127.0.0.1"),
+            ("ooInetHTTPSProxyPort", "9"),
+            ("ooInetNoProxy", ""),
+        )
+    )
+    # Never recalculate formulas on load (WEBSERVICE and friends stay as saved).
+    + "".join(
+        f'<item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="{k}" '
+        f'oor:op="fuse"><value>1</value></prop></item>\n'
+        for k in ("OOXMLRecalcMode", "ODFRecalcMode")
+    )
+    + "</oor:items>\n"
 )
+# Bump when _MACRO_LOCK changes so existing profiles are re-locked.
+PROFILE_VERSION = "2"
 
 
 def prepare_profile(profile_dir: Path) -> None:
-    """Create a LibreOffice profile with macros locked to the highest security level."""
+    """Create (or re-lock) a LibreOffice profile: macros off, no network, no recalculation."""
     user = profile_dir / "user"
     user.mkdir(parents=True, exist_ok=True)
     (user / "registrymodifications.xcu").write_text(_MACRO_LOCK, encoding="utf-8")
+    (profile_dir / "doctool-profile.version").write_text(PROFILE_VERSION, encoding="utf-8")
+
+
+def profile_current(profile_dir: Path) -> bool:
+    marker = profile_dir / "doctool-profile.version"
+    return marker.is_file() and marker.read_text(encoding="utf-8").strip() == PROFILE_VERSION
 
 
 # ---------- process runner ----------
@@ -258,8 +350,9 @@ def convert(
     )
     work_dir.mkdir(parents=True, exist_ok=True)
     profile = work_dir / "profile"
-    if not (profile / "user" / "registrymodifications.xcu").is_file():
+    if not profile_current(profile):
         prepare_profile(profile)
+    infilter = infilter or INFILTERS.get(ext)
     job = Path(tempfile.mkdtemp(prefix="job-", dir=work_dir))
     try:
         src = job / f"input.{ext}"
@@ -280,6 +373,8 @@ def convert(
         if rc != 0 or len(outs) != 1 or outs[0].stat().st_size == 0:
             log.info("LibreOffice failed (rc=%s): %s", rc, tail[-300:])
             raise OfficeError("damaged", "the document could not be converted")
+        if outs[0].stat().st_size > st.office_max_output_bytes:
+            raise OfficeError("too_large", "the converted document is too large")
         (profile / READY_MARK).write_text("ok", encoding="utf-8")
         return outs[0].read_bytes()
     finally:

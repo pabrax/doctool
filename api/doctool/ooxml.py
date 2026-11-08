@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import re
+import shutil
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -32,15 +33,28 @@ def _dump(root: etree._Element) -> bytes:
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
 
-def rewrite(data: bytes, edit: Callable[[str, bytes], bytes | None]) -> bytes:
-    """Copy a zip package, replacing a part when `edit(name, content)` returns new bytes."""
+def rewrite(
+    data: bytes,
+    edit: Callable[[str, bytes], bytes | None],
+    wants: Callable[[str], bool] = lambda name: True,
+) -> bytes:
+    """Copy a zip package, replacing a part when `edit(name, content)` returns new bytes.
+
+    Only parts for which `wants(name)` is true are read into memory; the others are streamed,
+    so a large picture or media part is never held whole."""
     src = zipfile.ZipFile(io.BytesIO(data))
     out = io.BytesIO()
     with src, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
         for info in src.infolist():
-            content = src.read(info)
-            new = edit(info.filename, content)
-            dst.writestr(info, content if new is None else new, compress_type=info.compress_type)
+            if wants(info.filename):
+                content = src.read(info)
+                new = edit(info.filename, content)
+                dst.writestr(
+                    info, content if new is None else new, compress_type=info.compress_type
+                )
+            else:
+                with src.open(info) as fin, dst.open(info, "w") as fout:
+                    shutil.copyfileobj(fin, fout, 1024 * 1024)
     return out.getvalue()
 
 
@@ -60,9 +74,7 @@ def neutralize_external(data: bytes) -> tuple[bytes, int]:
 
     def edit(name: str, content: bytes) -> bytes | None:
         nonlocal blocked
-        if not name.endswith(".rels") or b'TargetMode="External"' not in content:
-            return None
-        root = _xml(content)
+        root = _xml(content)  # parsed, never byte-matched: any quoting or encoding is seen
         changed = False
         for rel in root.iter(f"{{{NS_PKG_REL}}}Relationship"):
             if rel.get("TargetMode") != "External" or rel.get("Type", "").endswith("/hyperlink"):
@@ -72,7 +84,7 @@ def neutralize_external(data: bytes) -> tuple[bytes, int]:
             changed = True
         return _dump(root) if changed else None
 
-    return rewrite(data, edit), blocked
+    return rewrite(data, edit, wants=lambda name: name.endswith(".rels")), blocked
 
 
 # ---------- spreadsheets ----------
@@ -182,11 +194,13 @@ def xlsx_page_setup(
     wanted = [s for s in (sheets or []) if s.strip()]
     hidden_before = 0
     visible: list[etree._Element] = []
-    for i, sh in enumerate(sheet_list, start=1):
+    shown = 0  # numbers count the tabs a user sees, so hidden sheets take no number
+    for sh in sheet_list:
         if sh.get("state") in ("hidden", "veryHidden"):
             hidden_before += 1
             continue
-        if wanted and not any(_matches(s, i, sh.get("name", "")) for s in wanted):
+        shown += 1
+        if wanted and not any(_matches(s, shown, sh.get("name", "")) for s in wanted):
             sh.set("state", "hidden")
             continue
         visible.append(sh)
@@ -213,7 +227,10 @@ def xlsx_page_setup(
             return _setup_sheet(content, orientation, fit_width, fit_sheet)
         return None
 
-    return rewrite(data, edit), SheetSetup(visible=len(visible), hidden_skipped=hidden_before)
+    return (
+        rewrite(data, edit, wants=lambda name: name == "xl/workbook.xml" or name in parts),
+        SheetSetup(visible=len(visible), hidden_skipped=hidden_before),
+    )
 
 
 # ---------- presentations ----------

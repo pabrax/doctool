@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field
 
 from doctool import pdfextract
 from doctool.config import Settings
+from doctool.engines import engine_available
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
-from doctool.tools.officebase import LibreOfficeMixin, output_name
+from doctool.tools.officebase import LibreOfficeMixin, count_warning, output_name
 
 _EMU_PER_PT = 12700
 _MARGIN_PT = 54  # 0.75 in
@@ -64,7 +65,16 @@ class Pdf2WordTool(LibreOfficeMixin, Tool):
         missing = [p.index + 1 for p in pages if not p.has_text]
         if len(missing) == total:
             raise ToolError("no_text", "the PDF has no text: it looks scanned. Use OCR first.")
-        return [ToolOutput(name, build_docx(pages), warnings=no_text_warning(missing))]
+        warnings = no_text_warning(missing)
+        warnings += count_warning("images_skipped", sum(p.images_skipped for p in pages))
+        return [ToolOutput(name, build_docx(pages), warnings=warnings)]
+
+    def params_schema(self) -> dict:
+        """"Keep the look" needs LibreOffice: offer it only when the engine is installed."""
+        schema = super().params_schema()
+        if not engine_available("libreoffice"):
+            schema["properties"]["fidelity"]["enum"] = ["editable"]
+        return schema
 
 
 def build_docx(pages: list[pdfextract.PageContent]) -> bytes:

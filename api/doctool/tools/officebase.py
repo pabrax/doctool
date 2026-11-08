@@ -2,7 +2,6 @@
 
 import contextlib
 import json
-import posixpath
 from collections.abc import Callable, Iterator
 from typing import ClassVar
 
@@ -11,6 +10,7 @@ from doctool.config import Settings
 from doctool.officecore import OfficeError
 from doctool.tools.base import Tool, ToolError
 from doctool.tools.imageutil import InputError
+from doctool.tools.pages import stem
 
 Converter = Callable[..., bytes]
 _MAX_FONTS_LISTED = 5
@@ -34,8 +34,7 @@ def pdf_filter(name: str, **options: bool | str | int) -> str:
 
 
 def output_name(filename: str, ext: str) -> str:
-    stem = posixpath.splitext(posixpath.basename(filename.replace("\\", "/")))[0] or "document"
-    return f"{stem}.{ext}"
+    return f"{stem(filename.replace(chr(92), '/'))}.{ext}"
 
 
 def count_warning(code: str, count: int) -> list[dict]:

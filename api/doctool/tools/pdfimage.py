@@ -4,11 +4,9 @@ from typing import Literal
 import pypdfium2 as pdfium
 from pydantic import BaseModel, Field
 
-from doctool.pdfio import PDFIUM_LOCK
+from doctool.pdfio import MAX_RENDER_PIXELS, PDFIUM_LOCK
 from doctool.tools.base import Tool, ToolError, ToolInput, ToolOutput, registry
 from doctool.tools.pages import parse_pages, stem
-
-MAX_RENDER_PIXELS = 150_000_000
 
 
 class PdfImageParams(BaseModel):

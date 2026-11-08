@@ -6,6 +6,8 @@ import pikepdf
 
 # PDFium is not thread-safe: every pdfium call must hold this lock.
 PDFIUM_LOCK = threading.Lock()
+# Largest single page bitmap any tool renders (pixels).
+MAX_RENDER_PIXELS = 150_000_000
 
 
 class InvalidPdf(ValueError):

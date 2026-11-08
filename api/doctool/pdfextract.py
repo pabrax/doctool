@@ -14,11 +14,12 @@ from dataclasses import dataclass, field
 import pdfplumber
 import pypdfium2 as pdfium
 
+from doctool import pdfio
 from doctool.pdfio import PDFIUM_LOCK
 from doctool.tools.base import ToolError, open_pdf, save_pdf
 
 MIN_IMAGE_PT = 24  # smaller pictures are decorations (bullets, rules)
-MAX_RENDER_PIXELS = 150_000_000
+MAX_RENDER_PIXELS = pdfio.MAX_RENDER_PIXELS  # per page (module attribute: tests lower it)
 _HEADING_RATIO = 1.3
 _TITLE_RATIO = 1.6
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
@@ -43,6 +44,7 @@ class PageContent:
     has_text: bool
     blocks: list[Block] = field(default_factory=list)
     image_boxes: list[tuple[float, float, float, float]] = field(default_factory=list)
+    images_skipped: int = 0  # pictures found but not carried (page too large to render)
 
 
 def clean(text: str) -> str:
@@ -148,6 +150,7 @@ def _cut_images(data: bytes, pages: list[PageContent], dpi: int) -> None:
                 if not pc.image_boxes:
                     continue
                 if pc.width * pc.height * scale * scale > MAX_RENDER_PIXELS:
+                    pc.images_skipped += len(pc.image_boxes)
                     continue
                 bitmap = doc[pc.index].render(scale=scale).to_pil().convert("RGB")
                 for x0, top, x1, bottom in pc.image_boxes:
@@ -167,14 +170,22 @@ def _cut_images(data: bytes, pages: list[PageContent], dpi: int) -> None:
 
 
 def render_pages(
-    data: bytes, indexes: list[int], dpi: int
+    data: bytes, indexes: list[int], dpi: int, budget: int | None = None
 ) -> list[tuple[bytes, str, float, float]]:
-    """(png, plain text, width pt, height pt) per page, for picture slides."""
+    """(png, plain text, width pt, height pt) per page, for picture slides.
+
+    `budget` caps the pixels of all pages together (memory and time stay bounded)."""
     scale = dpi / 72
     out = []
     with PDFIUM_LOCK:
         doc = pdfium.PdfDocument(data)
         try:
+            if budget is not None:
+                total = sum(doc[i].get_size()[0] * doc[i].get_size()[1] for i in indexes)
+                if total * scale * scale > budget:
+                    raise ToolError(
+                        "too_large", f"too many pages to render at {dpi} dpi; lower the resolution"
+                    )
             for i in indexes:
                 page = doc[i]
                 w, h = page.get_size()

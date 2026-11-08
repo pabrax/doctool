@@ -65,6 +65,10 @@ class Tool:
 
         return all(engine_available(name) for name in self.requires)
 
+    def params_schema(self) -> dict:
+        """JSON schema of Params for the UI form; a tool may hide options it cannot run now."""
+        return self.Params.model_json_schema()
+
     def run(self, inputs: list[ToolInput], params: Any) -> list[ToolOutput]:
         raise NotImplementedError
 

@@ -304,6 +304,7 @@ const es: Dict = {
     },
     html2pdf: {
       page_size: "Tamaño de papel del PDF.",
+      orientation: "Automática respeta la orientación de la página, o vertical. Vertical y Horizontal se imponen a la página.",
       print_backgrounds: "Desactívalo para ahorrar tinta al imprimir.",
     },
     pdf2word: {

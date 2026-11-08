@@ -29,6 +29,8 @@ class Settings(BaseModel):
     office_max_ratio: int = 200  # uncompressed/compressed size of a package
     office_slot_wait_seconds: float = 0.5
     office_max_pdf_pages: int = 300  # PDF -> Word/Excel/PowerPoint
+    office_max_output_bytes: int = 500 * 1024 * 1024
+    office_render_budget_pixels: int = 1_500_000_000  # pdf2ppt: all pages together
     office_warmup: bool = True  # build the LibreOffice profile in the background at start
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
@@ -56,7 +58,8 @@ class Settings(BaseModel):
             _positive(values, env, key, int)
         _positive(values, env, "image_slot_wait_seconds", float)
         for key in ("office_max_entries", "office_max_uncompressed_bytes", "office_max_ratio",
-                    "office_max_pdf_pages"):
+                    "office_max_pdf_pages", "office_max_output_bytes",
+                    "office_render_budget_pixels"):
             _positive(values, env, key, int)
         for key in ("office_timeout_seconds", "office_slot_wait_seconds"):
             _positive(values, env, key, float)

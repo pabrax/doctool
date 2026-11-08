@@ -269,3 +269,93 @@ def test_warm_up_can_be_switched_off_from_the_environment(monkeypatch):
     assert Settings.from_env().office_warmup is True
     monkeypatch.setenv("DOCTOOL_OFFICE_WARMUP", "0")
     assert Settings.from_env().office_warmup is False
+
+
+# ---------- review fixes (O8, 2026-11-08) ----------
+def test_guard_sees_single_quoted_external_rels():
+    rels = (
+        b"<Relationships><Relationship Id='1' Type='x' Target='http://e.com/a.png' "
+        b"TargetMode='External'/></Relationships>"
+    )
+    rep = oc.guard_package(make_zip({**DOCX, "word/_rels/document.xml.rels": rels}), "docx")
+    assert "external_links" in rep.warnings
+
+
+@pytest.mark.parametrize("part", ["Basic/Standard/Module1.xml", "Scripts/python/evil.py"])
+def test_guard_rejects_odf_macros_at_the_package_root(part):
+    mime = b"application/vnd.oasis.opendocument.text"
+    data = make_zip({"mimetype": mime, "content.xml": b"<a/>", part: b"x"})
+    with pytest.raises(oc.OfficeError) as e:
+        oc.guard_package(data, "odt")
+    assert e.value.state == "macro"
+
+
+def test_guard_finds_a_dtd_after_a_long_comment_and_in_utf16():
+    late = b"<?xml version='1.0'?><!--" + b"x" * 100_000 + b"--><!DOCTYPE a [<!ENTITY e 'b'>]><a/>"
+    with pytest.raises(oc.OfficeError):
+        oc.guard_package(make_zip({**DOCX, "word/document.xml": late}), "docx")
+    dtd = '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE a [<!ENTITY e "b">]><a/>'
+    utf16 = dtd.encode("utf-16")
+    with pytest.raises(oc.OfficeError):
+        oc.guard_package(make_zip({**DOCX, "word/document.xml": utf16}), "docx")
+
+
+def test_guard_per_entry_ratio_cannot_be_hidden_by_stored_padding():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", CT)
+        z.writestr(zipfile.ZipInfo("word/media/pad.bin"), os.urandom(3_000_000))  # stored
+        z.writestr("word/media/bomb.bin", b"\0" * 30_000_000, compress_type=zipfile.ZIP_DEFLATED)
+    with pytest.raises(oc.OfficeError) as e:
+        oc.guard_package(buf.getvalue(), "docx")
+    assert e.value.state == "too_large"
+
+
+@pytest.mark.parametrize("ext,state", [("rtf", "damaged"), ("txt", "unsupported"),
+                                        ("csv", "unsupported"), ("html", "unsupported")])
+def test_flat_types_must_not_be_packages_in_disguise(ext, state):
+    with pytest.raises(oc.OfficeError) as e:
+        oc.guard_package(make_zip(DOCX), ext)
+    assert e.value.state == state
+
+
+def test_real_rtf_and_text_pass():
+    oc.guard_package(rb"{\rtf1\ansi hello}", "rtf")
+    oc.guard_package("hola ñ".encode(), "txt")
+
+
+def test_profile_blocks_network_and_is_relocked_when_outdated(tmp_path):
+    prof = tmp_path / "profile"
+    oc.prepare_profile(prof)
+    xcu = (prof / "user" / "registrymodifications.xcu").read_text(encoding="utf-8")
+    assert "BlockUntrustedRefererLinks" in xcu and "ooInetProxyType" in xcu
+    assert oc.profile_current(prof)
+    (prof / "doctool-profile.version").write_text("1")
+    assert not oc.profile_current(prof)
+
+
+def test_convert_forces_the_import_filter_of_the_extension(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake(argv, *, cwd, timeout):
+        seen["argv"] = argv
+        out = cwd / "out" / "input.pdf"
+        out.write_bytes(b"%PDF-1.7 x")
+        return 0, ""
+
+    monkeypatch.setattr(oc, "run_process", fake)
+    oc.convert(make_zip(DOCX), "docx", "pdf", soffice=tmp_path / "s.exe", work_dir=tmp_path)
+    assert "--infilter=MS Word 2007 XML" in seen["argv"]
+
+
+def test_convert_caps_the_output_size(tmp_path, monkeypatch):
+    def fake(argv, *, cwd, timeout):
+        (cwd / "out" / "input.pdf").write_bytes(b"%PDF" + b"0" * 2000)
+        return 0, ""
+
+    monkeypatch.setattr(oc, "run_process", fake)
+    small = Settings(office_max_output_bytes=1000)
+    with pytest.raises(oc.OfficeError) as e:
+        oc.convert(b"a,b\n", "csv", "pdf", soffice=tmp_path / "s.exe", work_dir=tmp_path,
+                   settings=small)
+    assert e.value.state == "too_large"

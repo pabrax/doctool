@@ -183,3 +183,26 @@ def test_pdf2ppt_picture_and_text(client):
 def test_pdf2ppt_dpi_bounds(client):
     r = client.post("/api/v1/tasks", json={"tool": "pdf2ppt", "params": {"dpi": 1000}})
     assert r.status_code == 422
+
+
+def test_pdf2word_reports_pictures_it_could_not_carry(client, monkeypatch):
+    from doctool import pdfextract
+
+    monkeypatch.setattr(pdfextract, "MAX_RENDER_PIXELS", 10)
+    task, _ = run(client, "pdf2word", rich_pdf(scanned_page=False))
+    assert warning(task, "images_skipped") == {"code": "images_skipped", "params": {"count": 1}}
+
+
+def test_pdf2word_hides_keep_look_without_engine(client, monkeypatch):
+    monkeypatch.setattr(officecore, "find_soffice", lambda *a, **k: None)
+    tool = {t["id"]: t for t in client.get("/api/v1/tools").json()}["pdf2word"]
+    assert tool["params_schema"]["properties"]["fidelity"]["enum"] == ["editable"]
+    monkeypatch.setattr(officecore, "find_soffice", lambda *a, **k: __file__)
+    tool = {t["id"]: t for t in client.get("/api/v1/tools").json()}["pdf2word"]
+    assert tool["params_schema"]["properties"]["fidelity"]["enum"] == ["editable", "keep_look"]
+
+
+def test_pdf2ppt_total_render_budget(client, monkeypatch):
+    monkeypatch.setenv("DOCTOOL_OFFICE_RENDER_BUDGET_PIXELS", "1000")
+    body, _ = run(client, "pdf2ppt", rich_pdf(), expect=400)
+    assert body["detail"]["state"] == "too_large"

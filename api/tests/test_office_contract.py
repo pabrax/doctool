@@ -170,3 +170,37 @@ def test_existing_database_gains_warnings_column(tmp_path):
     cols = [r[1] for r in factory.kw["bind"].connect().exec_driver_sql("PRAGMA table_info(task)")]
     assert "warnings" in cols
     factory.kw["bind"].dispose()
+
+
+def test_busy_with_the_real_lane(client, fake_word, lo_present):
+    tid = make_task(client)
+    upload(client, tid, "a.docx", docx_bytes())
+    with officecore.SLOT.hold(wait=0.1):  # another conversion is running
+        r = client.post(f"/api/v1/tasks/{tid}/process")
+    assert r.status_code == 503 and r.json()["detail"]["state"] == "busy"
+    assert client.post(f"/api/v1/tasks/{tid}/process").status_code == 200
+
+
+def test_requests_wait_while_the_warm_up_holds_the_lane(client, fake_word, lo_present):
+    import threading
+    import time
+
+    tid = make_task(client)
+    upload(client, tid, "a.docx", docx_bytes())
+    started = threading.Event()
+
+    def warm():
+        with officecore.SLOT.hold(wait=0.1):
+            started.set()
+            time.sleep(1.0)
+
+    officecore.WARMING.set()
+    t = threading.Thread(target=warm)
+    t.start()
+    started.wait(5)
+    try:
+        r = client.post(f"/api/v1/tasks/{tid}/process")
+    finally:
+        officecore.WARMING.clear()
+        t.join()
+    assert r.status_code == 200, r.text

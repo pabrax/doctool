@@ -6,6 +6,7 @@ from pptx.util import Emu, Pt
 from pydantic import BaseModel, Field
 
 from doctool import pdfextract
+from doctool.config import Settings
 from doctool.tools.base import Tool, ToolInput, ToolOutput, registry
 from doctool.tools.officebase import output_name
 from doctool.tools.pdf2word import check_pages
@@ -46,7 +47,8 @@ class Pdf2PptTool(Tool):
         data = pdfextract.decrypt(item.data, item.password)
         total = pdfextract.page_count(data)
         check_pages(total)
-        rendered = pdfextract.render_pages(data, list(range(total)), params.dpi)
+        budget = Settings.from_env().office_render_budget_pixels
+        rendered = pdfextract.render_pages(data, list(range(total)), params.dpi, budget)
         prs = Presentation()
         sw, sh = slide_size(rendered[0][2], rendered[0][3])
         prs.slide_width, prs.slide_height = Emu(sw), Emu(sh)

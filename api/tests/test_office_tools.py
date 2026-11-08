@@ -202,3 +202,98 @@ def test_html2pdf_rejects_other_types(client):
     tid = r.json()["id"]
     r = client.post(f"/api/v1/tasks/{tid}/files", files={"file": ("x.docx", docx())})
     assert r.status_code == 422 and r.json()["detail"]["state"] == "unsupported"
+
+
+# ---------- review fixes (O8): forced import filters and no fetching ----------
+def lo_make(data: bytes, ext: str, target: str, tmp_path) -> bytes:
+    return officecore.convert(data, ext, target, soffice=officecore.find_soffice(),
+                              work_dir=tmp_path / "make", timeout=180)
+
+
+@pytest.mark.parametrize("tool,src,ext,target", [
+    ("word2pdf", "docx", "odt", "odt:writer8"),
+    ("word2pdf", "docx", "doc", "doc:MS Word 97"),
+    ("word2pdf", "docx", "rtf", "rtf:Rich Text Format"),
+    ("excel2pdf", "xlsx", "ods", "ods:calc8"),
+    ("excel2pdf", "xlsx", "xls", "xls:MS Excel 97"),
+    ("ppt2pdf", "pptx", "odp", "odp:impress8"),
+    ("ppt2pdf", "pptx", "ppt", "ppt:MS PowerPoint 97"),
+])
+def test_other_formats_convert_with_their_forced_filter(client, tmp_path, tool, src, ext, target):
+    original = {"docx": docx, "xlsx": xlsx, "pptx": pptx}[src]()
+    data = lo_make(original, src, target, tmp_path)
+    _, pdf = run_tool(client, tool, f"file.{ext}", data)
+    assert n_pages(pdf) >= 1
+
+
+def test_csv_formulas_are_not_evaluated(client):
+    _, pdf = run_tool(client, "excel2pdf", "f.csv", b"label,calc\nsum,=1+41\n")
+    assert "42" not in text(pdf)
+
+
+def test_legacy_doc_links_are_never_fetched(client, tmp_path):
+    """Security regression (O8): a .doc linking an image over http and from file:/// must
+    neither contact the server nor embed the local file."""
+    import threading
+    import zipfile
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from PIL import Image
+
+    png = io.BytesIO()
+    Image.new("RGB", (40, 40), (200, 0, 0)).save(png, "PNG")
+    hits = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            hits.append(self.path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(png.getvalue())
+
+        def log_message(self, *a):
+            pass
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    secret = tmp_path / "secret.png"
+    secret.write_bytes(png.getvalue())
+
+    def odt_linking(href: str) -> bytes:
+        content = (
+            '<?xml version="1.0" encoding="UTF-8"?><office:document-content '
+            'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+            'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" '
+            'xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink" '
+            'xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" '
+            'office:version="1.3"><office:body><office:text><text:p>x<draw:frame draw:name="f" '
+            'svg:width="2cm" svg:height="2cm" text:anchor-type="as-char"><draw:image '
+            f'xlink:href="{href}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>'
+            "</draw:frame></text:p></office:text></office:body></office:document-content>"
+        )
+        manifest = (
+            '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest='
+            '"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3">'
+            '<manifest:file-entry manifest:full-path="/" manifest:media-type='
+            '"application/vnd.oasis.opendocument.text"/><manifest:file-entry manifest:full-path='
+            '"content.xml" manifest:media-type="text/xml"/></manifest:manifest>'
+        )
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr(zipfile.ZipInfo("mimetype"), "application/vnd.oasis.opendocument.text")
+            z.writestr("content.xml", content)
+            z.writestr("META-INF/manifest.xml", manifest)
+        return buf.getvalue()
+
+    try:
+        url = f"http://127.0.0.1:{srv.server_address[1]}/doc.png"
+        for href in (url, secret.resolve().as_uri()):
+            doc = lo_make(odt_linking(href), "odt", "doc:MS Word 97", tmp_path)
+            before = len(hits)
+            _, pdf = run_tool(client, "word2pdf", "linked.doc", doc)
+            assert len(hits) == before, f"LibreOffice fetched {href}"
+            with pikepdf.open(io.BytesIO(pdf)) as p:
+                assert sum(len(pg.images) for pg in p.pages) == 0, f"embedded {href}"
+    finally:
+        srv.shutdown()

@@ -84,7 +84,8 @@ def sanitize(
             if low.startswith("on"):
                 del el.attrib[attr]
                 blocked += 1
-            elif low in _URL_ATTRS and not _SAFE_URL.match(el.get(attr, "")):
+            elif low == "srcset" or (low in _URL_ATTRS and not _SAFE_URL.match(el.get(attr, ""))):
+                # srcset lists several URLs: never kept (src is enough)
                 del el.attrib[attr]
                 blocked += 1
             elif low == "href" and el.tag != "a":
@@ -115,7 +116,10 @@ def sanitize(
         rules += " * { background: none !important; background-color: transparent !important; }"
     page = etree.Element("style")
     page.text = rules
-    head.append(page)  # last, so it wins over the document's own @page
+    if orientation == "auto":
+        head.insert(0, page)  # first: a page that sets its own @page size keeps it
+    else:
+        head.append(page)  # last: an explicit choice wins over the document's own @page
     meta = etree.Element("meta", charset="utf-8")
     head.insert(0, meta)
     return html.tostring(doc, encoding="utf-8", method="html", doctype="<!DOCTYPE html>"), blocked

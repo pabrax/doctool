@@ -45,7 +45,10 @@ def csv_infilter(data: bytes) -> str:
         delim = csv.Sniffer().sniff(sample, delimiters=",;\t|").delimiter
     except csv.Error:
         delim = ","
-    return f"CSV Text - txt - csv (StarCalc):{ord(delim)},34,76"
+    # tokens: separator, quote, UTF-8, first line 1, cell formats, language,
+    # quoted as text, detect special numbers, -, -, trim spaces, -, evaluate formulas (off)
+    tokens = f"{ord(delim)},34,76,1,,0,false,true,false,false,false,0,false"
+    return f"CSV Text - txt - csv (StarCalc):{tokens}"
 
 
 class Excel2PdfTool(OfficeTool):

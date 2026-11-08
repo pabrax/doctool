@@ -42,7 +42,8 @@ router = APIRouter(prefix="/api/v1", tags=["tasks"])
 _IMAGE_TOOL_IDS = frozenset(
     {"imageclean", "imagecompress", "imageconvert", "imagecrop", "imageresize"}
 )
-_SLOTTED_TOOL_IDS = _IMAGE_TOOL_IDS | {"imagepdf"}
+# PDF -> Office tools parse and render hostile PDFs in this process: same bounded lanes.
+_SLOTTED_TOOL_IDS = _IMAGE_TOOL_IDS | {"imagepdf", "pdf2word", "pdf2excel", "pdf2ppt"}
 _IMAGE_SLOTS = threading.BoundedSemaphore(Settings.from_env().image_concurrency)
 
 
@@ -96,7 +97,7 @@ def list_tools():
             accepts=t.accepts,
             min_files=t.min_files,
             max_files=t.max_files,
-            params_schema=t.Params.model_json_schema(),
+            params_schema=t.params_schema(),
             available=t.available(),
             requires=list(t.requires),
             extensions=list(t.extensions),

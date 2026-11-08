@@ -302,6 +302,7 @@ const en = {
     },
     html2pdf: {
       page_size: "Paper size of the PDF.",
+      orientation: "Auto keeps the page's own setting, or portrait. Portrait and Landscape override the page.",
       print_backgrounds: "Turn off to save ink when printing.",
     },
     pdf2word: {
