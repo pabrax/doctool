@@ -4,7 +4,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from doctool import ooxml
-from doctool.tools.base import ToolInput, ToolOutput, registry
+from doctool.tools.base import ToolError, ToolInput, ToolOutput, registry
+from doctool.tools.imageutil import InputError
 from doctool.tools.officebase import (
     OfficeTool,
     count_warning,
@@ -68,6 +69,13 @@ class Excel2PdfTool(OfficeTool):
             if ext != "xlsx":  # normalise so the print settings are applied in one way
                 infilter = csv_infilter(data) if ext == "csv" else None
                 data = convert(data, ext, _XLSX, infilter=infilter)
+                # The intermediate workbook is checked and cleaned like an upload.
+                try:
+                    self.check_upload("intermediate.xlsx", data)
+                except InputError as exc:
+                    raise ToolError(exc.state, str(exc)) from exc
+                data, more = prepare_package(data, "xlsx")
+                warnings += more
             data, setup = ooxml.xlsx_page_setup(
                 data,
                 sheets=wanted,

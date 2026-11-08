@@ -21,6 +21,9 @@ NS_PKG_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 OOXML_EXT = frozenset({"docx", "xlsx", "pptx"})
+# Parts we parse in this process (sheets, .rels, workbook) are bounded: an lxml tree takes
+# several times the XML size in memory.
+MAX_EDITED_PART = 50 * 1024 * 1024
 _PARSER = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
 _OLE_MACRO_MARKERS = ("_VBA_PROJECT", "VBA", "Macros")
 
@@ -47,6 +50,8 @@ def rewrite(
     with src, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
         for info in src.infolist():
             if wants(info.filename):
+                if info.file_size > MAX_EDITED_PART:
+                    raise ToolError("too_large", "a part of the document is too large to process")
                 content = src.read(info)
                 new = edit(info.filename, content)
                 dst.writestr(

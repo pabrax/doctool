@@ -256,3 +256,23 @@ def test_html_srcset_is_always_dropped():
         page_size="a4", orientation="auto", backgrounds=True,
     )
     assert b"srcset" not in out.lower() and b"http://x" not in out
+
+
+def test_html_auto_keeps_user_margin_and_background_choice_last():
+    page = (
+        b"<html><head><style>@page { size: A4 landscape } body{background:red !important}"
+        b"</style></head><body>x</body></html>"
+    )
+    out, _ = htmlsafe.sanitize(page, page_size="a4", orientation="auto", backgrounds=False)
+    low = out.lower()
+    assert low.index(b"size: a4 landscape") < low.index(b"margin: 15mm")
+    assert low.index(b"background:red") < low.index(b"background: none")
+
+
+def test_parts_parsed_in_process_are_size_capped(monkeypatch):
+    monkeypatch.setattr(ooxml, "MAX_EDITED_PART", 100)
+    with pytest.raises(ToolError) as e:
+        ooxml.xlsx_page_setup(
+            xlsx_bytes(), sheets=None, orientation="auto", fit_width=True, fit_sheet=False
+        )
+    assert e.value.state == "too_large"

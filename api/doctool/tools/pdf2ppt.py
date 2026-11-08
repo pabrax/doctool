@@ -47,8 +47,14 @@ class Pdf2PptTool(Tool):
         data = pdfextract.decrypt(item.data, item.password)
         total = pdfextract.page_count(data)
         check_pages(total)
-        budget = Settings.from_env().office_render_budget_pixels
-        rendered = pdfextract.render_pages(data, list(range(total)), params.dpi, budget)
+        st = Settings.from_env()
+        rendered = pdfextract.render_pages(
+            data,
+            list(range(total)),
+            params.dpi,
+            st.office_render_budget_pixels,
+            max_bytes=st.office_max_output_bytes,
+        )
         prs = Presentation()
         sw, sh = slide_size(rendered[0][2], rendered[0][3])
         prs.slide_width, prs.slide_height = Emu(sw), Emu(sh)

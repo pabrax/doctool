@@ -111,15 +111,19 @@ def sanitize(
     # LibreOffice understands explicit lengths but not every CSS size keyword (e.g. "letter").
     short, long_ = _PAGE_MM[page_size]
     w, h = (long_, short) if orientation == "landscape" else (short, long_)
-    rules = f"@page {{ size: {w}mm {h}mm; margin: 15mm; }}"
+    size = etree.Element("style")
+    size.text = f"@page {{ size: {w}mm {h}mm; }}"
+    if orientation == "auto":
+        head.insert(0, size)  # first: a page that sets its own @page size keeps it
+    else:
+        head.append(size)  # last: an explicit choice wins over the document's own @page
+    # The user's margin and background choices always win, so they go last.
+    rules = "@page { margin: 15mm; }"
     if not backgrounds:
         rules += " * { background: none !important; background-color: transparent !important; }"
-    page = etree.Element("style")
-    page.text = rules
-    if orientation == "auto":
-        head.insert(0, page)  # first: a page that sets its own @page size keeps it
-    else:
-        head.append(page)  # last: an explicit choice wins over the document's own @page
+    choices = etree.Element("style")
+    choices.text = rules
+    head.append(choices)
     meta = etree.Element("meta", charset="utf-8")
     head.insert(0, meta)
     return html.tostring(doc, encoding="utf-8", method="html", doctype="<!DOCTYPE html>"), blocked

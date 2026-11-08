@@ -290,10 +290,12 @@ def test_legacy_doc_links_are_never_fetched(client, tmp_path):
         url = f"http://127.0.0.1:{srv.server_address[1]}/doc.png"
         for href in (url, secret.resolve().as_uri()):
             doc = lo_make(odt_linking(href), "odt", "doc:MS Word 97", tmp_path)
+            if href.startswith("http"):  # the test must not pass on a .doc without the link
+                assert href.encode() in doc or href.encode("utf-16-le") in doc
             before = len(hits)
             _, pdf = run_tool(client, "word2pdf", "linked.doc", doc)
             assert len(hits) == before, f"LibreOffice fetched {href}"
             with pikepdf.open(io.BytesIO(pdf)) as p:
-                assert sum(len(pg.images) for pg in p.pages) == 0, f"embedded {href}"
+                assert sum(len(pg.get_images()) for pg in p.pages) == 0, f"embedded {href}"
     finally:
         srv.shutdown()

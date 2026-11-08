@@ -170,13 +170,18 @@ def _cut_images(data: bytes, pages: list[PageContent], dpi: int) -> None:
 
 
 def render_pages(
-    data: bytes, indexes: list[int], dpi: int, budget: int | None = None
+    data: bytes,
+    indexes: list[int],
+    dpi: int,
+    budget: int | None = None,
+    max_bytes: int | None = None,
 ) -> list[tuple[bytes, str, float, float]]:
     """(png, plain text, width pt, height pt) per page, for picture slides.
 
     `budget` caps the pixels of all pages together (memory and time stay bounded)."""
     scale = dpi / 72
     out = []
+    held = 0  # PNG bytes kept for the slides
     with PDFIUM_LOCK:
         doc = pdfium.PdfDocument(data)
         try:
@@ -193,6 +198,11 @@ def render_pages(
                     raise ToolError("too_large", f"page {i + 1} is too large at {dpi} dpi")
                 buf = io.BytesIO()
                 page.render(scale=scale).to_pil().convert("RGB").save(buf, "PNG", optimize=True)
+                held += buf.tell()
+                if max_bytes is not None and held > max_bytes:
+                    raise ToolError(
+                        "too_large", "the slides would be too large; lower the resolution"
+                    )
                 out.append((buf.getvalue(), clean(page.get_textpage().get_text_range()), w, h))
         finally:
             doc.close()

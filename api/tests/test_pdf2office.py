@@ -206,3 +206,23 @@ def test_pdf2ppt_total_render_budget(client, monkeypatch):
     monkeypatch.setenv("DOCTOOL_OFFICE_RENDER_BUDGET_PIXELS", "1000")
     body, _ = run(client, "pdf2ppt", rich_pdf(), expect=400)
     assert body["detail"]["state"] == "too_large"
+
+
+def test_pdf_to_office_tools_use_the_bounded_lanes(client):
+    from doctool.routers import tasks
+
+    taken = 0
+    while tasks._IMAGE_SLOTS.acquire(blocking=False):
+        taken += 1
+    try:
+        body, _ = run(client, "pdf2word", rich_pdf(scanned_page=False), expect=503)
+        assert body["detail"]["state"] == "busy"
+    finally:
+        for _ in range(taken):
+            tasks._IMAGE_SLOTS.release()
+
+
+def test_pdf2ppt_caps_the_bytes_it_holds(client, monkeypatch):
+    monkeypatch.setenv("DOCTOOL_OFFICE_MAX_OUTPUT_BYTES", "100")
+    body, _ = run(client, "pdf2ppt", rich_pdf(), expect=400)
+    assert body["detail"]["state"] == "too_large"

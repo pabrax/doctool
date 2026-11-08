@@ -359,3 +359,17 @@ def test_convert_caps_the_output_size(tmp_path, monkeypatch):
         oc.convert(b"a,b\n", "csv", "pdf", soffice=tmp_path / "s.exe", work_dir=tmp_path,
                    settings=small)
     assert e.value.state == "too_large"
+
+
+def test_malformed_rels_is_damaged_not_a_crash():
+    data = make_zip({**DOCX, "word/_rels/document.xml.rels": b"<Relationships><oops"})
+    with pytest.raises(oc.OfficeError) as e:
+        oc.guard_package(data, "docx")
+    assert e.value.state == "damaged"
+
+
+def test_entity_scan_covers_other_xml_parts_and_utf32():
+    vml = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "b">]><x/>'.encode("utf-32-le")
+    with pytest.raises(oc.OfficeError) as e:
+        oc.guard_package(make_zip({**DOCX, "word/drawing.vml": vml}), "docx")
+    assert e.value.state == "unsafe"

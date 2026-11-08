@@ -5,6 +5,7 @@ treated as hostile: extension allowlist, package/zip-bomb/XML-entity guards, mac
 a per-job temp dir with a fixed file name (the upload name never reaches argv), a macro-locked
 persistent profile, one job at a time, a hard timeout that kills the whole process tree.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -60,12 +61,17 @@ class PackageReport:
 # ---------- discovery ----------
 def _default_locations() -> list[Path]:
     if sys.platform == "win32":
-        roots = [os.environ.get("ProgramFiles", r"C:\Program Files"),
-                 os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")]
+        roots = [
+            os.environ.get("ProgramFiles", r"C:\Program Files"),
+            os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+        ]
         return [Path(r) / "LibreOffice" / "program" / "soffice.exe" for r in roots]
-    return [Path("/usr/bin/soffice"), Path("/usr/lib/libreoffice/program/soffice"),
-            Path("/opt/libreoffice/program/soffice"),
-            Path("/Applications/LibreOffice.app/Contents/MacOS/soffice")]
+    return [
+        Path("/usr/bin/soffice"),
+        Path("/usr/lib/libreoffice/program/soffice"),
+        Path("/opt/libreoffice/program/soffice"),
+        Path("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
+    ]
 
 
 def find_soffice(
@@ -139,12 +145,15 @@ def guard_package(
             if info.flag_bits & 0x1:
                 raise OfficeError("wrong_password", _PWD_MSG)
             low = name.lower()
-            if (low.endswith("vbaproject.bin") or low.startswith(_ODF_SCRIPT_DIRS)
-                    or "/basic/" in low):
+            if (
+                low.endswith("vbaproject.bin")
+                or low.startswith(_ODF_SCRIPT_DIRS)
+                or "/basic/" in low
+            ):
                 raise OfficeError("macro", _MACRO_MSG)
+            if not low.endswith(_MEDIA_EXT) and _declares_entities(zf, info):
+                raise OfficeError("unsafe", "the document contains XML entity declarations")
             if low.endswith((".xml", ".rels")):
-                if _declares_entities(zf, info):
-                    raise OfficeError("unsafe", "the document contains XML entity declarations")
                 if low == "[content_types].xml":
                     if b"macroenabled" in zf.read(info).lower():
                         raise OfficeError("macro", _MACRO_MSG)
@@ -155,6 +164,29 @@ def guard_package(
 
 
 _BIG_ENTRY = 10 * 1024 * 1024
+# Binary media is not XML: every other part (.xml, .rels, .vml, ...) is scanned for a DTD.
+_MEDIA_EXT = (
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".emf",
+    ".wmf",
+    ".svm",
+    ".wdp",
+    ".mp4",
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".bin",
+    ".ttf",
+    ".odttf",
+    ".otf",
+    ".pdf",
+)
 _ODF_SCRIPT_DIRS = ("macros/", "basic/", "scripts/")
 _SCAN_CHUNK = 256 * 1024
 _ENTITY_MARKERS = (b"<!ENTITY", b"<!DOCTYPE")
@@ -165,6 +197,9 @@ def _declares_entities(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bool:
     markers = list(_ENTITY_MARKERS)
     markers += [m.decode().encode("utf-16-le") for m in _ENTITY_MARKERS]
     markers += [m.decode().encode("utf-16-be") for m in _ENTITY_MARKERS]
+    markers += [
+        m.decode().encode(enc) for m in _ENTITY_MARKERS for enc in ("utf-32-le", "utf-32-be")
+    ]
     keep = max(len(m) for m in markers)
     tail = b""
     with zf.open(info) as fh:
@@ -182,8 +217,8 @@ def _has_external_rel(content: bytes) -> bool:
 
     try:
         root = etree.fromstring(content, etree.XMLParser(resolve_entities=False, no_network=True))
-    except etree.XMLSyntaxError:
-        return False
+    except etree.XMLSyntaxError as exc:
+        raise OfficeError("damaged", "the document has a broken part") from exc
     return any(el.get("TargetMode") == "External" for el in root.iter())
 
 
@@ -204,10 +239,19 @@ def sniff_flat(data: bytes, ext: str) -> None:
 
 # Import filter per extension: LibreOffice must not pick a different format from the content.
 INFILTERS = {
-    "docx": "MS Word 2007 XML", "doc": "MS Word 97", "odt": "writer8", "rtf": "Rich Text Format",
-    "txt": "Text (encoded):UTF8", "html": "HTML (StarWriter)", "htm": "HTML (StarWriter)",
-    "xlsx": "Calc MS Excel 2007 XML", "xls": "MS Excel 97", "ods": "calc8",
-    "pptx": "Impress MS PowerPoint 2007 XML", "ppt": "MS PowerPoint 97", "odp": "impress8",
+    "docx": "MS Word 2007 XML",
+    "doc": "MS Word 97",
+    "odt": "writer8",
+    "rtf": "Rich Text Format",
+    "txt": "Text (encoded):UTF8",
+    "html": "HTML (StarWriter)",
+    "htm": "HTML (StarWriter)",
+    "xlsx": "Calc MS Excel 2007 XML",
+    "xls": "MS Excel 97",
+    "ods": "calc8",
+    "pptx": "Impress MS PowerPoint 2007 XML",
+    "ppt": "MS PowerPoint 97",
+    "odp": "impress8",
 }
 
 
@@ -290,7 +334,11 @@ def run_process(argv: list[str], *, cwd: Path, timeout: float) -> tuple[int, str
     log = cwd / "process.log"
     with open(log, "wb") as out:
         proc = subprocess.Popen(  # noqa: S603 - argv list, fixed names, shell=False
-            argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+            argv,
+            cwd=cwd,
+            stdin=subprocess.DEVNULL,
+            stdout=out,
+            stderr=subprocess.STDOUT,
             **kwargs,
         )
         try:
@@ -345,8 +393,11 @@ def convert(
     if ext not in ALLOWED_EXT | CONVERT_ONLY_EXT:
         raise OfficeError("unsupported", "unsupported office file type")
     guard_package(
-        data, ext, max_entries=st.office_max_entries,
-        max_uncompressed=st.office_max_uncompressed_bytes, max_ratio=st.office_max_ratio,
+        data,
+        ext,
+        max_entries=st.office_max_entries,
+        max_uncompressed=st.office_max_uncompressed_bytes,
+        max_ratio=st.office_max_ratio,
     )
     work_dir.mkdir(parents=True, exist_ok=True)
     profile = work_dir / "profile"
@@ -360,8 +411,13 @@ def convert(
         out_dir = job / "out"
         out_dir.mkdir()
         argv = [
-            str(soffice), f"-env:UserInstallation={profile.resolve().as_uri()}",
-            "--headless", "--norestore", "--nolockcheck", "--nologo", "--nodefault",
+            str(soffice),
+            f"-env:UserInstallation={profile.resolve().as_uri()}",
+            "--headless",
+            "--norestore",
+            "--nolockcheck",
+            "--nologo",
+            "--nodefault",
         ]
         if infilter:
             argv.append(f"--infilter={infilter}")
@@ -404,8 +460,9 @@ def warm_up(soffice: Path | None, work_dir: Path, settings: Settings | None = No
     WARMING.set()
     try:
         with SLOT.hold(wait=0.1):
-            convert(b"warm,up\n", "csv", "pdf", soffice=soffice, work_dir=work_dir,
-                    settings=settings)
+            convert(
+                b"warm,up\n", "csv", "pdf", soffice=soffice, work_dir=work_dir, settings=settings
+            )
         return True
     except OfficeError as exc:
         log.warning("LibreOffice warm-up skipped: %s", exc.message)
