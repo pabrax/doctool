@@ -54,7 +54,7 @@ test.describe("desktop sidebar on a short window", () => {
     expect(m.asideScroll).toBeLessThanOrEqual(m.asideClient);
     expect(m.asideH).toBeLessThanOrEqual(m.inner);
     // document height is driven by the page content, never beyond it
-    expect(m.scrollHeight).toBeLessThanOrEqual(Math.max(m.shell, m.inner));
+    expect(m.scrollHeight).toBeLessThanOrEqual(Math.ceil(Math.max(m.shell, m.inner))); // scrollHeight is rounded up
   });
 });
 

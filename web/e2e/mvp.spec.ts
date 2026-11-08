@@ -115,6 +115,8 @@ test("command palette jumps to a tool from the keyboard", async ({ page }) => {
   await page.goto("/");
   await page.keyboard.press("Control+k");
   await page.getByRole("combobox").fill("watermark");
+  // cmdk re-ranks after the input event; Enter must act on the filtered selection
+  await expect(page.getByRole("option", { name: /Add watermark/ })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/tools\/watermark/);
   await expect(page.getByRole("heading", { level: 1, name: "Add watermark" })).toBeVisible();

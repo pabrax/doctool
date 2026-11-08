@@ -24,6 +24,13 @@ const TOOL_KEYWORDS: Record<string, string[]> = {
   imageresize: ["photo", "foto", "jpg", "png", "size", "tamaño", "width", "ancho"],
   imagecrop: ["photo", "foto", "jpg", "png", "cut", "recortar"],
   imageclean: ["photo", "foto", "exif", "gps", "privacy", "privacidad", "metadata", "location", "ubicación"],
+  word2pdf: ["docx", "doc", "odt", "rtf", "office", "ofimática", "documento"],
+  excel2pdf: ["xlsx", "xls", "ods", "csv", "spreadsheet", "hoja de cálculo", "office", "ofimática"],
+  ppt2pdf: ["pptx", "ppt", "odp", "slides", "diapositivas", "presentación", "office", "ofimática"],
+  html2pdf: ["web", "página", "page", "htm"],
+  pdf2word: ["docx", "editable", "editar", "office", "ofimática"],
+  pdf2excel: ["xlsx", "tables", "tablas", "spreadsheet", "office", "ofimática"],
+  pdf2ppt: ["pptx", "slides", "diapositivas", "presentación", "office", "ofimática"],
 };
 
 export function CommandPalette({ open, onOpenChange }: Props) {
@@ -76,7 +83,10 @@ export function CommandPalette({ open, onOpenChange }: Props) {
               <Command.Item key={x.id} className={item} value={`${title} ${x.id}`} keywords={TOOL_KEYWORDS[x.id]} onSelect={() => go(toolPath(x.id))}>
                 <ToolIcon toolId={x.id} group={x.group} />
                 <span className="flex-1">{title}</span>
-                <span className="text-xs text-muted">{t(`groups.${x.group}`, { defaultValue: x.group })}</span>
+                <span className="text-xs text-muted">
+                  {x.available === false ? `${t("toolPage.needsEngine")} · ` : ""}
+                  {t(`groups.${x.group}`, { defaultValue: x.group })}
+                </span>
               </Command.Item>
             );
           })}

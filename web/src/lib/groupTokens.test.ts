@@ -25,7 +25,26 @@ describe("images group colour tokens", () => {
     expect(themed).toContain(`--images${k}: ${v};`);
   });
   it("is in the data-group selector list and has its own rule", () => {
-    expect(css).toMatch(/\[data-group="security"\],\s*\[data-group="images"\]\s*\{/);
+    expect(css).toMatch(/\[data-group="security"\],\s*\[data-group="images"\],/);
     expect(css).toMatch(/\[data-group="images"\] \{ --group: var\(--images\); --group-fg: var\(--images-fg\); --group-ink: var\(--images-ink\); --group-soft: var\(--images-soft\); \}/);
+  });
+});
+
+const OFFICE_LIGHT = { "": "#0e7490", "-fg": "#ffffff", "-ink": "#0e7490", "-soft": "#dff3f8" };
+const OFFICE_DARK = { "": "#5fd0e8", "-fg": "#14161c", "-ink": "#5fd0e8", "-soft": "#12313a" };
+
+describe("office group colour tokens (ADR D2b)", () => {
+  it.each(Object.entries(OFFICE_LIGHT))("light --office%s", (k, v) => {
+    expect(light).toContain(`--office${k}: ${v};`);
+  });
+  it.each(Object.entries(OFFICE_DARK))("dark (prefers-color-scheme) --office%s", (k, v) => {
+    expect(media).toContain(`--office${k}: ${v};`);
+  });
+  it.each(Object.entries(OFFICE_DARK))("dark (data-theme) --office%s", (k, v) => {
+    expect(themed).toContain(`--office${k}: ${v};`);
+  });
+  it("is in the data-group selector list and has its own rule", () => {
+    expect(css).toMatch(/\[data-group="images"\],\s*\[data-group="office"\]\s*\{/);
+    expect(css).toMatch(/\[data-group="office"\] \{ --group: var\(--office\); --group-fg: var\(--office-fg\); --group-ink: var\(--office-ink\); --group-soft: var\(--office-soft\); \}/);
   });
 });

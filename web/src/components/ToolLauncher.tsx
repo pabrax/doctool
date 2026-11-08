@@ -43,6 +43,9 @@ export function ToolLauncher() {
                   {t(`tools.${x.id}.title`, { defaultValue: x.title })}
                 </span>
                 <span className="mt-0.5 block text-xs font-medium text-g-ink">{t(`groups.${x.group}`, { defaultValue: x.group })}</span>
+                {x.available === false && (
+                  <span className="mt-0.5 block text-xs font-medium text-muted">{t("toolPage.needsEngine")}</span>
+                )}
                 <span className={`mt-0.5 line-clamp-2 block text-xs text-muted ${detail ? "" : "max-sm:hidden"}`}>
                   {t(`tools.${x.id}.description`, { defaultValue: x.description })}
                 </span>

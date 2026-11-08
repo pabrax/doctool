@@ -1,5 +1,6 @@
 import {
   ArrowRightLeft,
+  CodeXml,
   Combine,
   Crop,
   FileText,
@@ -7,15 +8,21 @@ import {
   ImageDown,
   Images,
   FileImage,
+  FileChartColumn,
+  FilePenLine,
+  FileSpreadsheet,
+  FileType,
   LayoutGrid,
   Lock,
   LockOpen,
+  Presentation,
   Minimize2,
   RotateCw,
   Scaling,
   Scissors,
   ShieldCheck,
   Stamp,
+  Table2,
   Tag,
   type LucideIcon,
 } from "lucide-react";
@@ -39,9 +46,16 @@ export const TOOL_ICONS: Record<string, LucideIcon> = {
   imageresize: Scaling,
   imagecrop: Crop,
   imageclean: ShieldCheck,
+  word2pdf: FileType,
+  excel2pdf: FileSpreadsheet,
+  ppt2pdf: Presentation,
+  html2pdf: CodeXml,
+  pdf2word: FilePenLine,
+  pdf2excel: Table2,
+  pdf2ppt: FileChartColumn,
 };
 
-export const GROUPS = ["organize", "optimize", "convert", "edit", "security", "images"] as const;
+export const GROUPS = ["organize", "optimize", "convert", "office", "edit", "security", "images"] as const;
 export type Group = (typeof GROUPS)[number];
 
 export const isKnownGroup = (g: string): g is Group => (GROUPS as readonly string[]).includes(g);

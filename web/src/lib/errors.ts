@@ -11,6 +11,26 @@ const IMAGE_STATE_KEY: Record<string, string> = {
   damaged: "damaged_image",
 };
 
+/** Office tools (LibreOffice lane, office uploads) speak of documents and sheets. */
+export const OFFICE_TOOLS: readonly string[] = ["word2pdf", "excel2pdf", "ppt2pdf", "html2pdf", "pdf2word", "pdf2excel", "pdf2ppt"];
+
+const OFFICE_STATE_KEY: Record<string, string> = {
+  busy: "busy_office",
+  unsupported: "unsupported_office",
+  damaged: "damaged_office",
+  too_large: "too_large_office",
+  out_of_range: "out_of_range_office",
+};
+
+/** Error key for a server state, worded for the kind of tool that failed. */
+function stateKey(state: string, toolId?: string): string {
+  if (toolId && IMAGE_TOOLS.includes(toolId)) return IMAGE_STATE_KEY[state] ?? state;
+  if (toolId && OFFICE_TOOLS.includes(toolId)) return OFFICE_STATE_KEY[state] ?? state;
+  return state;
+}
+
+export const isBusy = (err: unknown) => err instanceof ApiError && err.state === "busy";
+
 const humanize = (s: string) => s.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 /** Friendly, translated text for an API error; falls back to the server message. */
@@ -26,7 +46,7 @@ function reasonText(t: TFunction, err: unknown, toolId?: string, max?: number | 
       if (err.field) return t("errors.invalid_field", { field: t(`params.${err.field}`, { defaultValue: humanize(err.field) }) });
       return t("errors.invalid");
     }
-    const state = err.state && toolId && IMAGE_TOOLS.includes(toolId) ? (IMAGE_STATE_KEY[err.state] ?? err.state) : err.state;
+    const state = err.state ? stateKey(err.state, toolId) : err.state;
     const key = state ? `errors.${state}` : "";
     if (key) {
       const text = t(key, { defaultValue: "", max });

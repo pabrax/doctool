@@ -9,6 +9,8 @@ const REGISTERED = {
   compress: "optimize", imagepdf: "convert", pdfimage: "convert",
   metadata: "edit", watermark: "edit", pagenumber: "edit", protect: "security", unlock: "security",
   imageconvert: "images", imagecompress: "images", imageresize: "images", imagecrop: "images", imageclean: "images",
+  word2pdf: "office", excel2pdf: "office", ppt2pdf: "office", html2pdf: "office",
+  pdf2word: "office", pdf2excel: "office", pdf2ppt: "office",
 };
 
 describe("tool icons and groups", () => {
@@ -40,6 +42,11 @@ describe("tool icons and groups", () => {
   it("places images last in the group order", () => {
     expect(GROUP_ORDER[GROUP_ORDER.length - 1]).toBe("images");
     expect(GROUPS[GROUPS.length - 1]).toBe("images");
+  });
+
+  it("places office right after convert (owner decision 2026-11-08)", () => {
+    expect(GROUP_ORDER.indexOf("office")).toBe(GROUP_ORDER.indexOf("convert") + 1);
+    expect(GROUPS).toContain("office");
   });
 
   it("falls back to a generic icon for unknown tools", () => {

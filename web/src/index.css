@@ -62,6 +62,10 @@
   --images-fg: #ffffff;
   --images-ink: #b01f72;
   --images-soft: #fce7f3;
+  --office: #0e7490;
+  --office-fg: #ffffff;
+  --office-ink: #0e7490;
+  --office-soft: #dff3f8;
   color-scheme: light;
 }
 
@@ -105,6 +109,10 @@
     --images-fg: #14161c;
     --images-ink: #f07cc0;
     --images-soft: #3a1830;
+    --office: #5fd0e8;
+    --office-fg: #14161c;
+    --office-ink: #5fd0e8;
+    --office-soft: #12313a;
     color-scheme: dark;
   }
 }
@@ -148,6 +156,10 @@
   --images-fg: #14161c;
   --images-ink: #f07cc0;
   --images-soft: #3a1830;
+  --office: #5fd0e8;
+  --office-fg: #14161c;
+  --office-ink: #5fd0e8;
+  --office-soft: #12313a;
   color-scheme: dark;
 }
 
@@ -164,7 +176,8 @@
 [data-group="convert"],
 [data-group="edit"],
 [data-group="security"],
-[data-group="images"] {
+[data-group="images"],
+[data-group="office"] {
   --g: var(--group);
   --g-fg: var(--group-fg);
   --g-ink: var(--group-ink);
@@ -176,6 +189,7 @@
 [data-group="edit"] { --group: var(--edit); --group-fg: var(--edit-fg); --group-ink: var(--edit-ink); --group-soft: var(--edit-soft); }
 [data-group="security"] { --group: var(--security); --group-fg: var(--security-fg); --group-ink: var(--security-ink); --group-soft: var(--security-soft); }
 [data-group="images"] { --group: var(--images); --group-fg: var(--images-fg); --group-ink: var(--images-ink); --group-soft: var(--images-soft); }
+[data-group="office"] { --group: var(--office); --group-fg: var(--office-fg); --group-ink: var(--office-ink); --group-soft: var(--office-soft); }
 
 @theme inline {
   --color-bg: var(--bg);

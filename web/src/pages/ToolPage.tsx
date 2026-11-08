@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Download, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Info, Loader2, PlugZap, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -12,8 +12,8 @@ import { ToolIcon } from "@/components/ToolIcon";
 import { cardClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { isKnownGroup, toolIcon } from "@/lib/toolIcons";
-import { errorText, isWrongPassword } from "@/lib/errors";
-import type { Doc, InputRef, Task, Tool } from "@/lib/types";
+import { errorText, isBusy, isWrongPassword, OFFICE_TOOLS } from "@/lib/errors";
+import type { Doc, InputRef, Task, TaskWarning, Tool } from "@/lib/types";
 import { takesPdf, toolPath, useTools } from "@/lib/useTools";
 import { nextSteps } from "@/lib/nextSteps";
 import { grownPercent, savedPercent } from "@/lib/savings";
@@ -29,6 +29,34 @@ export function ToolPage() {
   if (!tool) return <Navigate to="/" replace />;
   // `key` resets the page state whenever the user switches tool.
   return <ToolWorkspace key={tool.id} tool={tool} tools={tools} />;
+}
+
+/** Where the engine set-up is explained (engine-missing banner). */
+const ENGINE_HELP_URL = "https://github.com/pabrax/doctool/blob/main/docs/office-setup.md";
+
+/** One finished-task warning as a sentence, plus a link when it names a tool that exists. */
+function WarningItem({ warning, tools }: { warning: TaskWarning; tools: Tool[] }) {
+  const { t } = useTranslation();
+  const text = t(`warnings.${warning.code}`, {
+    ...(warning.params ?? {}),
+    defaultValue: t("warnings.generic"),
+    interpolation: { escapeValue: false },
+  });
+  const target = warning.action ? tools.find((x) => x.id === warning.action!.tool) : undefined;
+  return (
+    <li className="flex items-start gap-2">
+      <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+      <span>
+        {warning.file ? `${warning.file}: ` : ""}
+        {text}{" "}
+        {target && (
+          <Link to={toolPath(target.id)} className="font-medium underline underline-offset-2">
+            {t("toolPage.openTool", { tool: t(`tools.${target.id}.title`, { defaultValue: target.title }) })}
+          </Link>
+        )}
+      </span>
+    </li>
+  );
 }
 
 /** Tools whose result card compares the size before and after. */
@@ -58,6 +86,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   const engineOk = tool.available !== false;
   const title = t(`tools.${tool.id}.title`, { defaultValue: tool.title });
   const description = t(`tools.${tool.id}.description`, { defaultValue: tool.description });
+  /** Honest-quality note shown before running (PDF -> Office tools). */
+  const note = t(`tools.${tool.id}.note`, { defaultValue: "" });
 
   useEffect(() => {
     document.title = `${title} · doctool`;
@@ -148,6 +178,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   const canRun = missing === 0 && extra === 0 && !run.isPending && engineOk;
   const result = run.data;
   const outputs = useMemo(() => result?.files.filter((f) => f.role === "out") ?? [], [result]);
+  const warnings = result?.warnings ?? [];
   const firstVersionId = outputs.find((f) => f.version_id)?.version_id ?? null;
   const { data: outVersion } = useQuery({
     queryKey: ["version", firstVersionId],
@@ -224,6 +255,24 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           <p className="mt-0.5 text-sm text-muted">{description}</p>
         </div>
       </header>
+
+      {note && (
+        <p role="note" className="mt-4 flex items-start gap-2 rounded-lg border border-border border-l-4 bg-surface p-3 text-sm">
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+          <span>{note}</span>
+        </p>
+      )}
+      {!engineOk && (
+        <p role="status" className="mt-4 flex items-start gap-2 rounded-lg border border-dashed border-border bg-surface-2 p-3 text-sm">
+          <PlugZap aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+          <span>
+            {t("toolPage.engineMissing")}{" "}
+            <a href={ENGINE_HELP_URL} className="inline-block min-h-6 font-medium underline underline-offset-2">
+              {t("toolPage.engineHow")}
+            </a>
+          </span>
+        </p>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
         <section aria-labelledby="files-h" className="grid content-start gap-4">
@@ -306,7 +355,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
                   {t("common.running")}
                 </>
-              ) : needPassword.size > 0 ? (
+              ) : needPassword.size > 0 || (run.isError && isBusy(run.error) && OFFICE_TOOLS.includes(tool.id)) ? (
                 t("common.retry")
               ) : (
                 t("common.run")
@@ -332,7 +381,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           <section aria-labelledby="result-h" className={`${cardClass} rise-in border-ok/50 p-5 shadow-card`}>
             <h2 id="result-h" ref={resultRef} className="font-display flex items-center gap-2 text-xl font-semibold text-ok">
               <CheckCircle2 aria-hidden className="h-5 w-5" />
-              {t("toolPage.resultTitle")}
+              {warnings.length ? t("toolPage.resultWarn", { count: warnings.length }) : t("toolPage.resultTitle")}
             </h2>
             <p className="mt-1 text-sm text-muted">
               {outputs.length > 1
@@ -347,6 +396,18 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                     .filter(Boolean)
                     .join(" · ")}
               </p>
+            )}
+            {warnings.length > 0 && (
+              <div className="mt-3">
+                <h3 id="warn-h" className="text-sm font-semibold">
+                  {t("toolPage.warningsTitle")}
+                </h3>
+                <ul aria-labelledby="warn-h" className="mt-1 grid gap-1 text-sm">
+                  {warnings.map((w, i) => (
+                    <WarningItem key={`${w.code}-${i}`} warning={w} tools={tools} />
+                  ))}
+                </ul>
+              </div>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <a
