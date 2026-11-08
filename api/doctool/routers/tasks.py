@@ -97,6 +97,9 @@ def list_tools():
             min_files=t.min_files,
             max_files=t.max_files,
             params_schema=t.Params.model_json_schema(),
+            available=t.available(),
+            requires=list(t.requires),
+            extensions=list(t.extensions),
         )
         for t in registry.all()
     ]
@@ -160,7 +163,7 @@ async def add_task_file(
     elif file is not None:
         data = await read_upload(file, settings)
         try:
-            tool.check_input(data)
+            tool.check_upload(file.filename or "input", data)
         except InputError as exc:
             raise HTTPException(
                 422, detail={"state": exc.state, "message": str(exc)}
@@ -250,6 +253,12 @@ def process_task(
         if not exc.retryable:
             task.finished_at = datetime.now(UTC)
             secrets.pop(task.id, None)
+        if exc.state == "busy":  # a transient lane is taken: nothing is wrong with the files
+            db.commit()
+            raise HTTPException(
+                503,
+                detail={"state": "busy", "message": exc.message, "retryable": True},
+            ) from exc
         for f in ins:
             f.state = exc.state
         db.commit()
@@ -279,6 +288,7 @@ def process_task(
     secrets.pop(task.id, None)
     task.state = "success"
     task.error = None
+    task.warnings = [w for out in outputs for w in out.warnings]
     task.finished_at = datetime.now(UTC)
     db.commit()
     return task_out(task, blobs)

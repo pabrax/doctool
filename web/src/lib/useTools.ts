@@ -15,6 +15,9 @@ export function sortByGroup<T extends { group: string }>(tools: T[]): T[] {
     .map(([t]) => t);
 }
 
+/** True when the tool takes a PDF as input (so it can follow another tool's PDF result). */
+export const takesPdf = (tool: { accepts: string }) => tool.accepts === "pdf" || tool.accepts === "pdf+image";
+
 export function useTools() {
   return useQuery({ queryKey: ["tools"], queryFn: api.tools, staleTime: Infinity });
 }

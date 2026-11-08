@@ -31,3 +31,39 @@ describe("Dropzone copy", () => {
     expect(screen.getByText("Images (JPG, PNG, WEBP, GIF, BMP)")).toBeInTheDocument();
   });
 });
+
+describe("Dropzone for office tools", () => {
+  const exts = ["docx", "odt"];
+  const take = vi.fn();
+  beforeEach(() => take.mockClear());
+
+  it("takes only the listed extensions, case-insensitively", () => {
+    render(<Dropzone accepts="office" extensions={exts} onFiles={take} />);
+    pick(new File(["x"], "Report.DOCX"));
+    expect(take).toHaveBeenCalledTimes(1);
+    pick(new File(["x"], "sheet.xlsx"));
+    expect(take).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("This file type is not supported by this tool. (1)");
+  });
+
+  it("never accepts macro-enabled files, even if the tool lists the base type", () => {
+    render(<Dropzone accepts="office" extensions={exts} onFiles={take} />);
+    pick(new File(["x"], "evil.docm"));
+    expect(take).not.toHaveBeenCalled();
+  });
+
+  it("lists the formats and limits the native picker", () => {
+    render(<Dropzone accepts="office" extensions={exts} onFiles={take} />);
+    expect(screen.getByText("Documents: DOCX, ODT")).toBeInTheDocument();
+    expect(screen.getByTestId("file-input")).toHaveAttribute("accept", ".docx,.odt");
+  });
+
+  it("is inert when disabled", () => {
+    render(<Dropzone accepts="office" extensions={exts} disabled onFiles={take} />);
+    expect(screen.getByRole("button", { name: "Select files" })).toBeDisabled();
+    fireEvent.drop(screen.getByText("Drop files here or click to select").closest("div")!, {
+      dataTransfer: { files: [new File(["x"], "a.docx")] },
+    });
+    expect(take).not.toHaveBeenCalled();
+  });
+});

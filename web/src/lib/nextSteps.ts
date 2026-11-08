@@ -1,4 +1,5 @@
 import type { Tool } from "./types";
+import { takesPdf } from "./useTools";
 
 /** What people usually do with a result next. Order = priority; unknown tools get DEFAULT. */
 const NEXT: Record<string, string[]> = {
@@ -20,6 +21,6 @@ export function nextSteps(toolId: string, tools: Tool[], limit = 3): Tool[] {
   return (NEXT[toolId] ?? DEFAULT)
     .filter((id) => id !== toolId)
     .map((id) => byId.get(id))
-    .filter((x): x is Tool => !!x && x.accepts !== "image")
+    .filter((x): x is Tool => !!x && takesPdf(x))
     .slice(0, limit);
 }

@@ -1,5 +1,5 @@
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 import pikepdf
@@ -19,6 +19,8 @@ class ToolInput:
 class ToolOutput:
     name: str
     data: bytes
+    # Non-fatal notes for the user: {"code": str, "params"?: dict, "file"?: str, "action"?: {...}}
+    warnings: list[dict] = field(default_factory=list)
 
 
 class ToolError(Exception):
@@ -44,13 +46,24 @@ class Tool:
     Params: ClassVar[type[BaseModel]]
     min_files: ClassVar[int] = 1
     max_files: ClassVar[int | None] = 1
-    accepts: ClassVar[str] = "pdf"  # pdf | image
+    accepts: ClassVar[str] = "pdf"  # pdf | image | pdf+image | office
+    requires: ClassVar[tuple[str, ...]] = ()  # external engines, see engines.py
+    extensions: ClassVar[tuple[str, ...]] = ()  # accepted file extensions (office tools)
 
     def check_input(self, data: bytes) -> None:
         """Raise ValueError when `data` is not acceptable input for this tool."""
         from doctool.pdfio import inspect_pdf
 
         inspect_pdf(data)
+
+    def check_upload(self, filename: str, data: bytes) -> None:
+        """Validate an uploaded file; defaults to check_input (the name matters for office)."""
+        self.check_input(data)
+
+    def available(self) -> bool:
+        from doctool.engines import engine_available
+
+        return all(engine_available(name) for name in self.requires)
 
     def run(self, inputs: list[ToolInput], params: Any) -> list[ToolOutput]:
         raise NotImplementedError

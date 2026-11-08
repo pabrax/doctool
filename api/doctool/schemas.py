@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class VersionOut(BaseModel):
@@ -61,9 +61,15 @@ class TaskOut(BaseModel):
     params: dict
     state: str
     error: str | None
+    warnings: list[dict] = []
     created_at: datetime
     finished_at: datetime | None
     files: list[TaskFileOut]
+
+    @field_validator("warnings", mode="before")
+    @classmethod
+    def _no_null_warnings(cls, value):
+        return value or []
 
 
 class ToolOut(BaseModel):
@@ -75,3 +81,6 @@ class ToolOut(BaseModel):
     min_files: int
     max_files: int | None
     params_schema: dict
+    available: bool = True  # False when a required external engine is missing
+    requires: list[str] = []
+    extensions: list[str] = []

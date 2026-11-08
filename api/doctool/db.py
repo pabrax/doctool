@@ -70,6 +70,7 @@ class Task(Base):
     params: Mapped[dict] = mapped_column(JSON, default=dict)
     state: Mapped[str] = mapped_column(String(32), default="waiting")
     error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    warnings: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     files: Mapped[list["TaskFile"]] = relationship(
@@ -93,4 +94,13 @@ class TaskFile(Base):
 def make_session_factory(db_path: Path) -> sessionmaker:
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
     return sessionmaker(engine, expire_on_commit=False)
+
+
+def _add_missing_columns(engine) -> None:
+    """create_all never alters existing tables; add the columns introduced after v0.1."""
+    with engine.begin() as con:
+        cols = {row[1] for row in con.exec_driver_sql("PRAGMA table_info(task)")}
+        if cols and "warnings" not in cols:
+            con.exec_driver_sql("ALTER TABLE task ADD COLUMN warnings JSON")

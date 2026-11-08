@@ -26,10 +26,23 @@ export interface Tool {
   title: string;
   group: string;
   description: string;
-  accepts: "pdf" | "image" | "pdf+image";
+  accepts: "pdf" | "image" | "pdf+image" | "office";
   min_files: number;
   max_files: number | null;
   params_schema: ParamsSchema;
+  /** False when a required external engine (e.g. LibreOffice) is missing. Absent = available. */
+  available?: boolean;
+  requires?: string[];
+  /** Accepted extensions (lower-case, no dot) for `accepts: "office"` tools. */
+  extensions?: string[];
+}
+
+/** A non-fatal note on a finished task, rendered from `warnings.<code>` in the i18n files. */
+export interface TaskWarning {
+  code: string;
+  params?: Record<string, unknown>;
+  file?: string;
+  action?: { tool: string };
 }
 
 export interface Version {
@@ -73,6 +86,7 @@ export interface Task {
   params: Record<string, unknown>;
   state: "waiting" | "processing" | "success" | "error";
   error: string | null;
+  warnings?: TaskWarning[];
   files: TaskFile[];
 }
 

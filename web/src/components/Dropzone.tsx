@@ -9,13 +9,18 @@ type Accepts = Tool["accepts"];
 const isPdf = (f: File) => f.type === "application/pdf" || /\.pdf$/i.test(f.name);
 const isImage = (f: File) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i.test(f.name);
 
-export function acceptsFile(file: File, accepts: Accepts): boolean {
+// Macro-enabled Office files are never accepted, whatever a tool lists (the server refuses them too).
+const MACRO_FILE = /\.(docm|xlsm|pptm|dotm|xltm|potm|ppsm|xlam)$/i;
+const extOf = (f: File) => f.name.toLowerCase().split(".").slice(1).pop() ?? "";
+
+export function acceptsFile(file: File, accepts: Accepts, extensions: string[] = []): boolean {
+  if (accepts === "office") return !MACRO_FILE.test(file.name) && extensions.includes(extOf(file));
   if (accepts === "pdf") return isPdf(file);
   if (accepts === "image") return isImage(file);
   return isPdf(file) || isImage(file);
 }
 
-const acceptAttr: Record<Accepts, string> = {
+const acceptAttr: Record<Exclude<Accepts, "office">, string> = {
   pdf: ".pdf,application/pdf",
   image: "image/*",
   "pdf+image": ".pdf,application/pdf,image/*",
@@ -30,23 +35,29 @@ interface Props {
   compact?: boolean;
   /** Tool group; the images group names only the still formats it handles. */
   group?: string;
+  /** File extensions an `office` tool takes (lower-case, no dot). */
+  extensions?: string[];
+  /** Engine missing: the zone neither opens the picker nor takes drops. */
+  disabled?: boolean;
 }
 
-export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, group }: Props) {
+export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, group, extensions = [], disabled }: Props) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [rejected, setRejected] = useState(0);
 
   const take = (list: FileList | null) => {
-    if (!list) return;
+    if (!list || disabled) return;
     const all = Array.from(list);
-    const ok = all.filter((f) => acceptsFile(f, accepts));
+    const ok = all.filter((f) => acceptsFile(f, accepts, extensions));
     setRejected(all.length - ok.length);
     if (ok.length) onFiles(multiple ? ok : ok.slice(0, 1));
   };
   const kind =
-    accepts === "pdf"
+    accepts === "office"
+      ? t("dropzone.office", { list: extensions.map((e) => e.toUpperCase()).join(", ") })
+      : accepts === "pdf"
       ? t("dropzone.pdf")
       : accepts === "image"
         ? group === "images"
@@ -56,9 +67,10 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
 
   return (
     <div
+      aria-disabled={disabled || undefined}
       onDragOver={(e) => {
         e.preventDefault();
-        setOver(true);
+        if (!disabled) setOver(true);
       }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
@@ -90,6 +102,7 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
         <button
           type="button"
           className="inline-flex min-h-10 items-center rounded-lg bg-g px-4 py-2 text-sm font-medium text-g-fg shadow-sm transition hover:brightness-95 active:translate-y-px"
+          disabled={disabled}
           onClick={() => input.current?.click()}
         >
           {t("dropzone.pick")}
@@ -101,7 +114,7 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
         type="file"
         hidden
         multiple={multiple}
-        accept={acceptAttr[accepts]}
+        accept={accepts === "office" ? extensions.map((e) => `.${e}`).join(",") : acceptAttr[accepts]}
         data-testid="file-input"
         onChange={(e) => {
           take(e.target.files);
@@ -110,7 +123,12 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
       />
       {rejected > 0 && (
         <p role="alert" className="text-xs text-danger">
-          {accepts === "image" ? t("dropzone.rejectedImage") : t("errors.damaged")} ({rejected})
+          {accepts === "image"
+            ? t("dropzone.rejectedImage")
+            : accepts === "office"
+              ? t("dropzone.rejectedOffice")
+              : t("errors.damaged")}{" "}
+          ({rejected})
         </p>
       )}
     </div>

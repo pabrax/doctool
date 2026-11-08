@@ -159,6 +159,8 @@ const en = {
     fromLibrary: "From library",
     pick: "Select files",
     rejectedImage: "This file is not a picture we can read. Try JPG, PNG or WebP.",
+    office: "Documents: {{list}}",
+    rejectedOffice: "This file type is not supported by this tool.",
   },
   toolPage: {
     files: "Files",

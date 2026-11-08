@@ -14,7 +14,7 @@ import { api, ApiError } from "@/lib/api";
 import { isKnownGroup, toolIcon } from "@/lib/toolIcons";
 import { errorText, isWrongPassword } from "@/lib/errors";
 import type { Doc, InputRef, Task, Tool } from "@/lib/types";
-import { toolPath, useTools } from "@/lib/useTools";
+import { takesPdf, toolPath, useTools } from "@/lib/useTools";
 import { nextSteps } from "@/lib/nextSteps";
 import { grownPercent, savedPercent } from "@/lib/savings";
 import { formatBytes, uid } from "@/lib/utils";
@@ -54,7 +54,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   const [removed, setRemoved] = useState<{ inputs: InputRef[]; passwords: Record<string, string> } | null>(null);
 
   const single = tool.max_files === 1;
-  const acceptsPdf = tool.accepts !== "image";
+  const acceptsPdf = takesPdf(tool);
+  const engineOk = tool.available !== false;
   const title = t(`tools.${tool.id}.title`, { defaultValue: tool.title });
   const description = t(`tools.${tool.id}.description`, { defaultValue: tool.description });
 
@@ -144,7 +145,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     .filter(Boolean)
     .join(" · ");
   const extra = tool.max_files != null ? Math.max(0, inputs.length - tool.max_files) : 0;
-  const canRun = missing === 0 && extra === 0 && !run.isPending;
+  const canRun = missing === 0 && extra === 0 && !run.isPending && engineOk;
   const result = run.data;
   const outputs = useMemo(() => result?.files.filter((f) => f.role === "out") ?? [], [result]);
   const firstVersionId = outputs.find((f) => f.version_id)?.version_id ?? null;
@@ -231,6 +232,8 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
           </h2>
           <Dropzone
             accepts={tool.accepts}
+            extensions={tool.extensions}
+            disabled={!engineOk}
             group={tool.group}
             multiple={!single}
             compact={inputs.length > 0}
@@ -371,7 +374,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                   >
                     <option value="">{t("toolPage.useAsInput")}…</option>
                     {tools
-                      .filter((x) => x.accepts !== "image")
+                      .filter(takesPdf)
                       .map((x) => (
                         <option key={x.id} value={x.id}>
                           {t(`tools.${x.id}.title`, { defaultValue: x.title })}

@@ -161,6 +161,8 @@ const es: Dict = {
     release: "Suelta para añadir tus archivos",
     pick: "Elegir archivos",
     rejectedImage: "Este archivo no es una imagen que podamos leer. Prueba con JPG, PNG o WebP.",
+    office: "Documentos: {{list}}",
+    rejectedOffice: "Este tipo de archivo no es compatible con esta herramienta.",
   },
   toolPage: {
     files: "Archivos",
