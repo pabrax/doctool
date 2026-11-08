@@ -22,8 +22,25 @@ research: [`docs/RESEARCH.md`](docs/RESEARCH.md) · feature summary: [`docs/SUMM
 | Edit | Watermark (text or image), page numbers, metadata editor |
 | Security | Protect (AES-256), Unlock |
 | Images | Convert (JPG/PNG/WebP, AVIF when your Pillow supports it), Compress (web / email / maximum, never returns a bigger file), Resize, Crop (aspect ratio or pixel box), Remove photo info (EXIF/GPS). Pillow only, still pictures only, metadata removed by default |
+| Office | Word, Excel, PowerPoint and HTML → PDF; PDF → Word, Excel, PowerPoint (see below) |
 | Library | Every output is a new *version* of its document; history, preview, tags, rename |
 | UX | Ctrl+K command palette, English/Spanish, light/dark, keyboard accessible (axe-checked) |
+
+### Office tools
+
+Seven tools in the **Office** group: Word to PDF (DOCX/DOC/ODT/RTF/TXT), Excel to PDF
+(XLSX/XLS/ODS/CSV, sheet selection and fit to page), PowerPoint to PDF (slides or handouts,
+notes, hidden slides), HTML to PDF (a saved page; nothing is fetched), and PDF to Word, PDF to
+Excel (real tables) and PDF to PowerPoint (one slide per page).
+
+The "to PDF" tools, and PDF to Word's "Keep the look" mode, need **LibreOffice** installed; without
+it they show "Needs LibreOffice" and stay off. doctool starts LibreOffice as a separate program,
+one conversion at a time, with macros and linked-content fetching locked off. Text recognition
+(OCR) is not included yet.
+
+* Install and troubleshoot: [`docs/office-setup.md`](docs/office-setup.md)
+* Options, messages, architecture and security model: [`docs/office-module.md`](docs/office-module.md)
+* Docker and exposing it safely: [`docs/deployment.md`](docs/deployment.md)
 
 ### Screenshots
 
@@ -112,7 +129,7 @@ doctool is a single-user local app with **no login**, so exposure is what protec
 * There is no page-count cap yet (only a 200 MB upload cap): a huge PDF can use a lot of memory.
 * The Docker files and CI workflow are written but **have not been run** (no Docker/GitHub on the
   development machine).
-* PDF → Word, OCR and Office → PDF are planned for v0.2 (see the spec).
+* OCR (text recognition for scanned PDFs) is not shipped yet. PDF → Word/Excel/PowerPoint and Office → PDF exist; see [`docs/office-module.md`](docs/office-module.md) for their limits.
 
 ## License
 
