@@ -70,8 +70,8 @@ Out of scope: online co-editing, macros/VBA execution (always stripped/blocked),
 ## Tasks (ids stable; one Conventional Commit per task on `feat/office-module`)
 - [x] O0 (2026-11-08) Branch `feat/office-module` created from the image-module tip (office edits share `tools/__init__.py`, `toolIcons.ts`, i18n with it); plan already in `odd/tasks/`; ADR D2b in `docs/adr-ui-identity.md` (teal, contrast computed 4.67-10.05:1, owner may veto); the 2 doc commits moved off `feat/image-module`, which is back at 25c0ede
 - [ ] O1 Spikes S1-S6, results in `docs/RESEARCH.md` "Office" - accept: each question answered with command output or marked unresolved
-- [ ] O2 ui-ux-designer: `design/office-tools.md` (group, icons, per-tool options, "engine missing" state, warnings display, before/after for compare)
-- [ ] O3 `officecore.py`: soffice discovery, sandboxed runner (profile dir, timeout, tree kill, semaphore), OOXML zip/XML guards + tests (bomb, macro file, corrupt, password-protected, huge sheet) - accept: pytest + ruff green
+- [x] O2 (2026-11-08) `design/office-tools.md` written by ui-ux-designer (7 Tier A tools, 12 contracts, 5 open owner decisions in its section 15); field names `available`/`requires`/`warnings` are proposals for O4; es.ts/index.css not read by the designer, re-check in O7
+- [x] O3 (2026-11-08) `api/doctool/officecore.py` + `tests/test_officecore.py` (33 tests, TDD: red on ImportError first): soffice discovery, extension allowlist, macro/zip-bomb/XML-entity/encrypted-package guards, macro-locked persistent profile, process-tree kill on timeout, single slot (busy), settings `DOCTOOL_OFFICE_*`. Real-LibreOffice tests pass (csv->pdf, job dirs cleaned). Not yet wired to any router/tool (O4/O5); independent security review is O8. Known limit: external links are only DETECTED (warning), network blocking is a deployment concern (O12)
 - [ ] O4 extend `Tool.accepts` to `office` + Dropzone/accept lists + upload allowlist; existing 624 pytest stay green
 - [ ] O5 Tier A tools 1-3 (Office->PDF), one implementer each, tester after the group
 - [ ] O6 Tier A tools 4-7 (PDF->Office, html2pdf) per S2/S3 decisions, tester after

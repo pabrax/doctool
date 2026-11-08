@@ -22,6 +22,12 @@ class Settings(BaseModel):
     image_max_files: int = 10
     image_concurrency: int = 2  # image tasks decoding at the same time
     image_slot_wait_seconds: float = 0.5  # how long a request waits for a free image slot
+    # Office tools (LibreOffice runs as one external process at a time; see officecore.py).
+    office_timeout_seconds: float = 60.0
+    office_max_entries: int = 5000  # zip entries in an OOXML/ODF package
+    office_max_uncompressed_bytes: int = 500 * 1024 * 1024
+    office_max_ratio: int = 200  # uncompressed/compressed size of a package
+    office_slot_wait_seconds: float = 0.5
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
@@ -47,6 +53,10 @@ class Settings(BaseModel):
                     "image_concurrency"):
             _positive(values, env, key, int)
         _positive(values, env, "image_slot_wait_seconds", float)
+        for key in ("office_max_entries", "office_max_uncompressed_bytes", "office_max_ratio"):
+            _positive(values, env, key, int)
+        for key in ("office_timeout_seconds", "office_slot_wait_seconds"):
+            _positive(values, env, key, float)
         host = env.get("DOCTOOL_HOST", "127.0.0.1")
         if host not in LOCAL_HOSTS and env.get("DOCTOOL_ALLOW_LAN") != "1":
             raise ValueError(

@@ -18,6 +18,7 @@ include = ["doctool*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["office: runs the real LibreOffice (slow; skipped when it is not installed)"]
 
 [tool.ruff]
 line-length = 100
