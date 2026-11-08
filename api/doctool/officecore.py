@@ -30,6 +30,9 @@ ODF = {"odt", "ods", "odp"}
 ZIPPED = OOXML | ODF
 FLAT = {"doc", "xls", "ppt", "rtf", "txt", "csv", "html", "htm"}
 ALLOWED_EXT = ZIPPED | FLAT
+# Conversion sources that are never office uploads: PDF goes in only through the PDF tools
+# (already checked as a PDF) for LibreOffice's "keep the look" import.
+CONVERT_ONLY_EXT = {"pdf"}
 MACRO_EXT = {"docm", "xlsm", "pptm", "dotm", "xltm", "potm", "ppsm", "xlam"}
 
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
@@ -182,24 +185,30 @@ def _kill_tree(proc: subprocess.Popen) -> None:
 
 
 def run_process(argv: list[str], *, cwd: Path, timeout: float) -> tuple[int, str]:
-    """Run argv (no shell, no stdin) and kill the whole process tree on timeout."""
+    """Run argv (no shell, no stdin) and kill the whole process tree on timeout.
+
+    Output goes to a log file in `cwd`, not to a pipe: LibreOffice helpers (e.g. xpdfimport for
+    PDF import) inherit the handles and can keep a pipe open after soffice exits, which would
+    make a pipe reader wait until the timeout."""
     kwargs: dict = {}
     if os.name == "nt":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
     else:
         kwargs["start_new_session"] = True
-    proc = subprocess.Popen(  # noqa: S603 - argv list, fixed names, shell=False
-        argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, errors="replace", **kwargs,
-    )
-    try:
-        out, _ = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        _kill_tree(proc)
-        with contextlib.suppress(Exception):
-            proc.communicate(timeout=5)
-        raise OfficeError("timeout", "the conversion took too long and was stopped") from exc
-    return proc.returncode, (out or "")[-2000:]
+    log = cwd / "process.log"
+    with open(log, "wb") as out:
+        proc = subprocess.Popen(  # noqa: S603 - argv list, fixed names, shell=False
+            argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+            **kwargs,
+        )
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            _kill_tree(proc)
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=5)
+            raise OfficeError("timeout", "the conversion took too long and was stopped") from exc
+    return proc.returncode, log.read_bytes()[-2000:].decode("utf-8", errors="replace")
 
 
 # ---------- one job at a time ----------
@@ -241,7 +250,7 @@ def convert(
     st = settings or Settings()
     if soffice is None:
         raise OfficeError("engine_missing", "LibreOffice is not installed")
-    if ext not in ALLOWED_EXT:
+    if ext not in ALLOWED_EXT | CONVERT_ONLY_EXT:
         raise OfficeError("unsupported", "unsupported office file type")
     guard_package(
         data, ext, max_entries=st.office_max_entries,

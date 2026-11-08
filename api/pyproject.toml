@@ -7,6 +7,8 @@ license = { text = "Apache-2.0" }
 dependencies = [
   "fastapi", "uvicorn[standard]", "pydantic", "sqlalchemy", "python-multipart",
   "pikepdf", "pypdfium2", "reportlab", "img2pdf", "pillow",
+  # office module (all MIT/BSD; LibreOffice itself is an external program, never a dependency)
+  "lxml", "python-docx", "openpyxl", "python-pptx", "pdfplumber",
 ]
 
 [project.optional-dependencies]
