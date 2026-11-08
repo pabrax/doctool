@@ -41,3 +41,19 @@ Why: group color lets users locate a tool by scanning (like colored folder tabs)
 - Color is never the only signal: group names and tool names stay as text.
 - Text on group colors uses per-group `-ink` / `-fg` tokens verified at >= 4.5:1 in both themes.
 - SPEC section 8 amended accordingly.
+
+**D2b (2026-11-08, owner approved the office-module plan; colour is a default the owner may veto):** Tool groups grow from six to seven. `office` (teal) is added for the OFFICE module (Word/Excel/PowerPoint/HTML to PDF, PDF to Word/Excel/PowerPoint, OCR, compare, office utilities). Teal sits at hue ~190, the one free gap between jade (optimize, ~160) and cobalt (organize, ~230); the other candidates were rejected as too close to an existing group. The rule is unchanged: the app accent stays neutral ink, color only marks the group.
+
+Tokens (light / dark): `--office` #0e7490 / #5fd0e8, `--office-fg` #ffffff / #14161c, `--office-ink` #0e7490 / #5fd0e8, `--office-soft` #dff3f8 / #12313a. To be added to `web/src/index.css` in task O7, not before.
+
+Contrast, computed with the WCAG relative-luminance formula by a script (not by hand):
+
+| Pair | Light | Dark | Need |
+|---|---|---|---|
+| fg on fill | 5.36:1 | 10.05:1 | 4.5 |
+| ink on surface | 5.36:1 | 9.04:1 | 4.5 |
+| ink on soft | 4.67:1 | 7.65:1 | 4.5 |
+| ink on bg | 5.04:1 | 10.05:1 | 4.5 |
+| fill vs surface (non-text) | 5.36:1 | 9.04:1 | 3 |
+
+Teal is the nearest neighbour of jade for colour-blind users; group and tool names stay as text on every tile and header.

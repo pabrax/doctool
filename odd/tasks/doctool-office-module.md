@@ -68,7 +68,7 @@ Out of scope: online co-editing, macros/VBA execution (always stripped/blocked),
 - S6 Verify iLovePDF/Smallpdf/Adobe premium tool lists directly from their sites (compare, redact, PDF->PPT/XLSX) to finish the 1:1 matrix.
 
 ## Tasks (ids stable; one Conventional Commit per task on `feat/office-module`)
-- [ ] O0 Branch from main; copy this plan; ADR for `office` group colour (SPEC one-accent rule) - owner decides
+- [x] O0 (2026-11-08) Branch `feat/office-module` created from the image-module tip (office edits share `tools/__init__.py`, `toolIcons.ts`, i18n with it); plan already in `odd/tasks/`; ADR D2b in `docs/adr-ui-identity.md` (teal, contrast computed 4.67-10.05:1, owner may veto); the 2 doc commits moved off `feat/image-module`, which is back at 25c0ede
 - [ ] O1 Spikes S1-S6, results in `docs/RESEARCH.md` "Office" - accept: each question answered with command output or marked unresolved
 - [ ] O2 ui-ux-designer: `design/office-tools.md` (group, icons, per-tool options, "engine missing" state, warnings display, before/after for compare)
 - [ ] O3 `officecore.py`: soffice discovery, sandboxed runner (profile dir, timeout, tree kill, semaphore), OOXML zip/XML guards + tests (bomb, macro file, corrupt, password-protected, huge sheet) - accept: pytest + ruff green
