@@ -170,7 +170,16 @@ async def add_task_file(
                 422, detail={"state": exc.state, "message": str(exc)}
             ) from exc
         except (InvalidPdf, ValueError) as exc:
-            raise HTTPException(422, str(exc)) from exc
+            # Library messages can carry internals (object reprs): log them, answer plainly.
+            log.info("upload rejected for %s: %s", tool.id, exc)
+            if not isinstance(exc, InvalidPdf):  # a tool's own check: its message is ours
+                detail = {"state": "not_image" if "image" in str(exc) else "damaged",
+                          "message": str(exc)}
+            elif str(exc) == "not a PDF file":
+                detail = {"state": "not_pdf", "message": "This file is not a PDF."}
+            else:
+                detail = {"state": "damaged", "message": "The file is damaged or not supported."}
+            raise HTTPException(422, detail=detail) from exc
         tf = TaskFile(
             role="in",
             position=position,

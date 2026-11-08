@@ -14,3 +14,8 @@ web/e2e/.fixtures/
 web/test-results/
 web/playwright-report/
 web/tsconfig.tsbuildinfo
+
+# office QA1 bulky artefacts (fixtures up to 210 MB, downloads, raw runs)
+qa/fixtures-office/
+qa/dl-office/
+qa/office-run-*.json

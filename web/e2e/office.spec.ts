@@ -17,7 +17,7 @@ async function download(page: Page): Promise<{ bytes: Buffer; name: string }> {
 
 const TOOLS = [
   { id: "word2pdf", title: "Word to PDF", file: "letter.docx", out: "letter.pdf", magic: "%PDF" },
-  { id: "excel2pdf", title: "Excel to PDF", file: "book.xlsx", out: "book.pdf", magic: "%PDF", warn: /hidden slides or sheets were skipped/ },
+  { id: "excel2pdf", title: "Excel to PDF", file: "book.xlsx", out: "book.pdf", magic: "%PDF", warn: /hidden slides? or sheets? (was|were) skipped/ },
   { id: "ppt2pdf", title: "PowerPoint to PDF", file: "deck.pptx", out: "deck.pdf", magic: "%PDF" },
   { id: "html2pdf", title: "HTML to PDF", file: "page.html", out: "page.pdf", magic: "%PDF", warn: /were not loaded/ },
   { id: "pdf2word", title: "PDF to Word", file: "table.pdf", out: "table.docx", magic: "PK" },
@@ -57,5 +57,14 @@ test("O7 office group sits right after Convert in the sidebar, and PDF -> Office
 test("O7 a macro-enabled file is refused with a clear reason", async ({ page }) => {
   await page.goto("/tools/word2pdf");
   await page.getByTestId("file-input").setInputFiles({ name: "evil.docm", mimeType: "application/octet-stream", buffer: Buffer.from("PK") });
-  await expect(page.getByRole("alert")).toContainText("not supported by this tool");
+  await expect(page.getByRole("alert")).toContainText("evil.docm: files with macros are not accepted");
+});
+
+test("O7 keyboard: focus returns to Run after the result (QA1 O2)", async ({ page }) => {
+  await page.goto("/tools/word2pdf");
+  await page.getByTestId("file-input").setInputFiles(path.join(fixtures, "letter.docx"));
+  await run(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: /^Done/ })).toBeVisible({ timeout: 90_000 });
+  await expect(run(page)).toBeFocused();
 });

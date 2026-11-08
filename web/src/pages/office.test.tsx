@@ -109,3 +109,45 @@ describe("office tools", () => {
     await userEvent.upload(screen.getByTestId("file-input"), pdfFile());
   });
 });
+
+describe("office tools while working and after", () => {
+  it("shows what is happening while converting, with a counter that is not read aloud (QA1 O1)", async () => {
+    mockFetch({
+      "GET /tools": { body: [word2pdf] },
+      "GET /documents": { body: [] },
+      "POST /tasks": { status: 201, body: task() },
+      "POST /tasks/t1/files": { status: 201, body: task({ files: [inFile] }) },
+    });
+    const real = globalThis.fetch;
+    // the conversion never finishes in this test
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/process") ? new Promise<Response>(() => undefined) : real(input, init)) as typeof fetch;
+    renderApp("/tools/word2pdf");
+    await userEvent.upload(await screen.findByTestId("file-input"), docx());
+    await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+    expect(await screen.findByText(/Converting your document/)).toBeInTheDocument();
+    expect(screen.getByText(/Converting your document/).closest("[role=status]")).not.toBeNull();
+    expect(await screen.findByText(/^1 s$/, {}, { timeout: 2500 })).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("gives focus back to Run after the result so the keyboard user keeps their place (QA1 O2)", async () => {
+    routes([word2pdf], { body: task({ state: "success", files: [inFile, outFile] }) });
+    renderApp("/tools/word2pdf");
+    await userEvent.upload(await screen.findByTestId("file-input"), docx());
+    await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+    await screen.findByRole("heading", { name: /^Done/ });
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /^run$/i })).toHaveFocus());
+  });
+
+  it("uses the singular for one skipped item (QA1 O11)", async () => {
+    routes([word2pdf], {
+      body: task({ state: "success", files: [inFile, outFile], warnings: [{ code: "hidden_skipped", params: { count: 1 } }] }),
+    });
+    renderApp("/tools/word2pdf");
+    await userEvent.upload(await screen.findByTestId("file-input"), docx());
+    await userEvent.click(screen.getByRole("button", { name: /^run$/i }));
+    expect(await screen.findByRole("list", { name: "Check these things" })).toHaveTextContent(
+      "1 hidden slide or sheet was skipped.",
+    );
+  });
+});

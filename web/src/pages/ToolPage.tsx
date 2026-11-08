@@ -78,6 +78,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
   const [sizeBefore, setSizeBefore] = useState<number | null>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
+  const runRef = useRef<HTMLButtonElement>(null);
   /** What "Remove all" took away, so it can be put back. */
   const [removed, setRemoved] = useState<{ inputs: InputRef[]; passwords: Record<string, string> } | null>(null);
 
@@ -204,6 +205,25 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
     const grown = tool.id === "imageresize" || tool.id === "imageconvert" ? grownPercent(sizeBefore, outSize) : null;
     return grown !== null ? t("toolPage.larger", { pct: grown, before, after }) : null;
   })();
+
+  // Office conversions can take a while (first LibreOffice start): count the seconds shown.
+  const [elapsed, setElapsed] = useState(0);
+  const pending = run.isPending;
+  useEffect(() => {
+    if (!pending) return;
+    setElapsed(0);
+    const timer = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [pending]);
+  // Run is disabled while pending, and browsers drop focus from a disabled button: give it back
+  // when the task settles so a keyboard user keeps their place ("run again" is one key).
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending && (document.activeElement === document.body || !document.activeElement)) {
+      runRef.current?.focus();
+    }
+    wasPending.current = pending;
+  }, [pending]);
 
   const steps = useMemo(() => nextSteps(tool.id, tools), [tool.id, tools]);
   const succeeded = result?.state === "success";
@@ -349,7 +369,7 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                 {t(tool.accepts === "image" ? "toolPage.tooManyImages" : "toolPage.tooManyFiles", { max: tool.max_files, extra })}
               </p>
             )}
-            <Button type="submit" variant="primary" disabled={!canRun}>
+            <Button ref={runRef} type="submit" variant="primary" disabled={!canRun}>
               {run.isPending ? (
                 <>
                   <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -361,6 +381,14 @@ function ToolWorkspace({ tool, tools }: { tool: Tool; tools: Tool[] }) {
                 t("common.run")
               )}
             </Button>
+            {pending && tool.group === "office" && (
+              <p role="status" className="flex items-start justify-between gap-2 text-xs text-muted">
+                <span>{t("toolPage.working")}</span>
+                <span aria-hidden="true" className="tabular shrink-0">
+                  {t("toolPage.elapsed", { seconds: elapsed })}
+                </span>
+              </p>
+            )}
           </form>
         </aside>
       </div>

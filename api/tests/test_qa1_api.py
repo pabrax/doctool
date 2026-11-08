@@ -116,7 +116,9 @@ def test_pdf_errors_unchanged(client):
     tid = new_task(client, "split", {"mode": "every"}).json()["id"]
     r = upload(client, tid, "a.pdf", b"not a pdf", "application/pdf")
     assert r.status_code == 422
-    assert isinstance(r.json()["detail"], str)
+    # Since office QA1 (O5): a state and a plain message, never the library's text (it leaked
+    # object reprs such as "<_io.BytesIO object at 0x...>").
+    assert r.json()["detail"] == {"state": "not_pdf", "message": "This file is not a PDF."}
 
 
 def test_upload_limit_413_has_state(tmp_path, db_template):

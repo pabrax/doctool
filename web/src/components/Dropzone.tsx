@@ -45,13 +45,14 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
-  const [rejected, setRejected] = useState(0);
+  const [rejectedFiles, setRejectedFiles] = useState<string[]>([]);
+  const rejected = rejectedFiles.length;
 
   const take = (list: FileList | null) => {
     if (!list || disabled) return;
     const all = Array.from(list);
     const ok = all.filter((f) => acceptsFile(f, accepts, extensions));
-    setRejected(all.length - ok.length);
+    setRejectedFiles(all.filter((f) => !ok.includes(f)).map((f) => f.name));
     if (ok.length) onFiles(multiple ? ok : ok.slice(0, 1));
   };
   const kind =
@@ -64,6 +65,19 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
           ? t("dropzone.imageStill")
           : t("dropzone.image")
         : t("dropzone.pdfImage");
+
+  /** Name the refused files and say what to do; office and PDF tools are specific. */
+  const rejectionText = () => {
+    const names = rejectedFiles.join(", ");
+    const opts = { names, interpolation: { escapeValue: false } };
+    if (accepts === "office") {
+      if (rejectedFiles.some((n) => MACRO_FILE.test(n))) return t("dropzone.rejectedMacro", opts);
+      return t("dropzone.rejectedOffice", { ...opts, list: extensions.map((e) => e.toUpperCase()).join(", ") });
+    }
+    if (accepts === "pdf") return t("dropzone.rejectedPdf", opts);
+    if (accepts === "image") return `${t("dropzone.rejectedImage")} (${rejected})`;
+    return `${t("errors.damaged")} (${rejected})`;
+  };
 
   return (
     <div
@@ -123,12 +137,7 @@ export function Dropzone({ accepts, multiple = true, onFiles, extra, compact, gr
       />
       {rejected > 0 && (
         <p role="alert" className="text-xs text-danger">
-          {accepts === "image"
-            ? t("dropzone.rejectedImage")
-            : accepts === "office"
-              ? t("dropzone.rejectedOffice")
-              : t("errors.damaged")}{" "}
-          ({rejected})
+          {rejectionText()}
         </p>
       )}
     </div>

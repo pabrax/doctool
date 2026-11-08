@@ -226,3 +226,18 @@ def test_pdf2ppt_caps_the_bytes_it_holds(client, monkeypatch):
     monkeypatch.setenv("DOCTOOL_OFFICE_MAX_OUTPUT_BYTES", "100")
     body, _ = run(client, "pdf2ppt", rich_pdf(), expect=400)
     assert body["detail"]["state"] == "too_large"
+
+
+@pytest.mark.parametrize(
+    "data,state", [(b"", "not_pdf"), (b"garbage", "not_pdf"), (b"%PDF-1.7\n1 0 obj", "damaged")]
+)
+def test_bad_pdf_uploads_get_a_state_and_no_internals(client, data, state):
+    r = client.post("/api/v1/tasks", json={"tool": "pdf2word", "params": {}})
+    tid = r.json()["id"]
+    r = client.post(
+        f"/api/v1/tasks/{tid}/files", files={"file": ("x.pdf", data, "application/pdf")}
+    )
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["state"] == state
+    assert "BytesIO" not in detail["message"] and "stream" not in detail["message"]

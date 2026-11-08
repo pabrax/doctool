@@ -11,10 +11,10 @@ describe("Dropzone rejection message", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("This file is not a picture we can read. Try JPG, PNG or WebP. (1)");
   });
 
-  it("PDF tools keep the document wording", () => {
+  it("PDF tools name the file and say it is not a PDF (office QA1 O4)", () => {
     render(<Dropzone accepts="pdf" onFiles={() => undefined} />);
-    pick(new File(["x"], "p.png", { type: "image/png" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("The file is damaged or not a valid document. (1)");
+    pick(new File(["x"], "letter.docx"));
+    expect(screen.getByRole("alert")).toHaveTextContent("letter.docx: not a PDF. This tool needs a PDF file.");
   });
 });
 
@@ -43,13 +43,16 @@ describe("Dropzone for office tools", () => {
     expect(take).toHaveBeenCalledTimes(1);
     pick(new File(["x"], "sheet.xlsx"));
     expect(take).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("alert")).toHaveTextContent("This file type is not supported by this tool. (1)");
+    expect(screen.getByRole("alert")).toHaveTextContent("sheet.xlsx: this tool does not take this type of file. It takes DOCX, ODT.");
   });
 
-  it("never accepts macro-enabled files, even if the tool lists the base type", () => {
+  it("never accepts macro-enabled files and says why (office QA1 O3)", () => {
     render(<Dropzone accepts="office" extensions={exts} onFiles={take} />);
     pick(new File(["x"], "evil.docm"));
     expect(take).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "evil.docm: files with macros are not accepted. Save a copy without macros (for example .docx) and add it again.",
+    );
   });
 
   it("lists the formats and limits the native picker", () => {
