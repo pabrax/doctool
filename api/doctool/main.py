@@ -1,4 +1,5 @@
 import mimetypes
+import threading
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
@@ -8,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from doctool import __version__
+from doctool import __version__, officecore
 from doctool.config import Settings
 from doctool.db import make_session_factory
 from doctool.library import purge_expired_tasks
@@ -58,6 +59,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.secrets = {}
         with app.state.session_factory() as db:
             purge_expired_tasks(db, app.state.blobs, settings.task_ttl_hours)
+        if settings.office_warmup:
+            # Same work dir as the office tools use (officebase.LibreOfficeMixin).
+            threading.Thread(
+                target=officecore.warm_up,
+                args=(officecore.find_soffice(), settings.data_dir / "office", settings),
+                name="libreoffice-warmup",
+                daemon=True,
+            ).start()
         yield
 
     app = FastAPI(title="doctool", version=__version__, lifespan=lifespan)

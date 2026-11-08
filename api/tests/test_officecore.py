@@ -233,3 +233,39 @@ def test_convert_garbage_docx_is_rejected_before_libreoffice(tmp_path):
     with pytest.raises(oc.OfficeError) as e:
         oc.convert(b"garbage", "docx", "pdf", soffice=SOFFICE, work_dir=tmp_path)
     assert e.value.state == "damaged"
+
+
+# ---------- first run: profile warm-up ----------
+def test_warm_up_without_engine_is_a_noop(tmp_path):
+    assert oc.warm_up(None, tmp_path) is False
+    assert not (tmp_path / "profile").exists()
+
+
+def test_first_run_gets_a_longer_timeout(tmp_path):
+    assert oc.effective_timeout(tmp_path, 60) == oc.FIRST_RUN_TIMEOUT
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / oc.READY_MARK).write_text("ok")
+    assert oc.effective_timeout(tmp_path, 60) == 60
+
+
+@needs_lo
+@pytest.mark.office
+def test_warm_up_prepares_the_profile_once(tmp_path):
+    assert oc.warm_up(SOFFICE, tmp_path) is True
+    assert oc.profile_ready(tmp_path)
+    assert oc.warm_up(SOFFICE, tmp_path) is False  # already warm: nothing to do
+
+
+def test_requests_wait_for_the_warm_up_instead_of_busy():
+    assert oc.slot_wait(0.5) == 0.5
+    oc.WARMING.set()
+    try:
+        assert oc.slot_wait(0.5) == oc.FIRST_RUN_TIMEOUT
+    finally:
+        oc.WARMING.clear()
+
+
+def test_warm_up_can_be_switched_off_from_the_environment(monkeypatch):
+    assert Settings.from_env().office_warmup is True
+    monkeypatch.setenv("DOCTOOL_OFFICE_WARMUP", "0")
+    assert Settings.from_env().office_warmup is False

@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 
-from doctool.config import Settings
+from doctool.config import Settings, log
 
 OOXML = {"docx", "xlsx", "pptx"}
 ODF = {"odt", "ods", "odp"}
@@ -273,11 +273,55 @@ def convert(
         if infilter:
             argv.append(f"--infilter={infilter}")
         argv += ["--convert-to", target, "--outdir", str(out_dir), str(src)]
-        rc, tail = run_process(argv, cwd=job, timeout=timeout or st.office_timeout_seconds)
+        limit = effective_timeout(work_dir, timeout or st.office_timeout_seconds)
+        rc, tail = run_process(argv, cwd=job, timeout=limit)
         want = target.split(":", 1)[0]
         outs = [p for p in out_dir.iterdir() if p.suffix.lower() == f".{want}"]
         if rc != 0 or len(outs) != 1 or outs[0].stat().st_size == 0:
+            log.info("LibreOffice failed (rc=%s): %s", rc, tail[-300:])
             raise OfficeError("damaged", "the document could not be converted")
+        (profile / READY_MARK).write_text("ok", encoding="utf-8")
         return outs[0].read_bytes()
     finally:
         shutil.rmtree(job, ignore_errors=True)
+
+
+# ---------- first run ----------
+# A brand-new LibreOffice profile takes much longer the first time (it is built and the font
+# cache filled). Until one conversion has succeeded the timeout is raised, and the server warms
+# the profile up in the background at start so the user's first conversion is not the slow one.
+READY_MARK = ".ready"
+FIRST_RUN_TIMEOUT = 180.0
+
+
+def profile_ready(work_dir: Path) -> bool:
+    return (work_dir / "profile" / READY_MARK).is_file()
+
+
+def effective_timeout(work_dir: Path, timeout: float) -> float:
+    return timeout if profile_ready(work_dir) else max(timeout, FIRST_RUN_TIMEOUT)
+
+
+def warm_up(soffice: Path | None, work_dir: Path, settings: Settings | None = None) -> bool:
+    """Build the profile with one tiny conversion. True when it ran; never raises."""
+    if soffice is None or profile_ready(work_dir):
+        return False
+    WARMING.set()
+    try:
+        with SLOT.hold(wait=0.1):
+            convert(b"warm,up\n", "csv", "pdf", soffice=soffice, work_dir=work_dir,
+                    settings=settings)
+        return True
+    except OfficeError as exc:
+        log.warning("LibreOffice warm-up skipped: %s", exc.message)
+        return False
+    finally:
+        WARMING.clear()
+
+
+# Set while the start-up warm-up holds the lane: requests then wait for it instead of a 503.
+WARMING = threading.Event()
+
+
+def slot_wait(default: float) -> float:
+    return FIRST_RUN_TIMEOUT if WARMING.is_set() else default

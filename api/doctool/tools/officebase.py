@@ -78,7 +78,7 @@ class LibreOfficeMixin:
             soffice = officecore.find_soffice()
             if soffice is None:
                 raise OfficeError("engine_missing", "LibreOffice is not installed")
-            with officecore.SLOT.hold(wait=st.office_slot_wait_seconds):
+            with officecore.SLOT.hold(wait=officecore.slot_wait(st.office_slot_wait_seconds)):
 
                 def convert(data: bytes, ext: str, target: str, **kw) -> bytes:
                     return officecore.convert(

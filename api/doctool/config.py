@@ -29,6 +29,7 @@ class Settings(BaseModel):
     office_max_ratio: int = 200  # uncompressed/compressed size of a package
     office_slot_wait_seconds: float = 0.5
     office_max_pdf_pages: int = 300  # PDF -> Word/Excel/PowerPoint
+    office_warmup: bool = True  # build the LibreOffice profile in the background at start
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
@@ -59,6 +60,8 @@ class Settings(BaseModel):
             _positive(values, env, key, int)
         for key in ("office_timeout_seconds", "office_slot_wait_seconds"):
             _positive(values, env, key, float)
+        if env.get("DOCTOOL_OFFICE_WARMUP") == "0":
+            values["office_warmup"] = False
         host = env.get("DOCTOOL_HOST", "127.0.0.1")
         if host not in LOCAL_HOSTS and env.get("DOCTOOL_ALLOW_LAN") != "1":
             raise ValueError(
