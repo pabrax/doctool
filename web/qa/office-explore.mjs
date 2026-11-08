@@ -1,0 +1,15 @@
+import { chromium } from "playwright-core";
+import path from "node:path";
+const QA = path.resolve(import.meta.dirname, "..", "..", "qa");
+const b = await chromium.launch({ channel: "msedge" });
+const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, locale: "en-US" });
+await ctx.addInitScript(() => localStorage.setItem("doctool.lang", "en"));
+const page = await ctx.newPage();
+page.on("console", (m) => ["error", "warning"].includes(m.type()) && console.log("CONSOLE", m.type(), m.text()));
+page.on("response", (r) => r.status() >= 400 && console.log("HTTP", r.status(), r.url()));
+await page.goto("http://127.0.0.1:8000/tools/word2pdf");
+await page.waitForLoadState("networkidle");
+console.log((await page.locator("main").innerText()).slice(0, 1500));
+console.log(await page.locator("input[type=file]").evaluateAll((e) => e.map((x) => x.outerHTML)));
+await page.screenshot({ path: path.join(QA, "shots", "O_explore_word2pdf.png") });
+await b.close();
