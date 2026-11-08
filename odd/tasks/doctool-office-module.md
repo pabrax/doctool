@@ -20,9 +20,9 @@ base: branch feat/office-module from main (after feat/image-module is merged, ow
 | Need | Engine | License | Note |
 |---|---|---|---|
 | Office -> PDF | LibreOffice headless, external process only | MPL-2.0 | never linked; per-job profile dir `-env:UserInstallation`; no shell; timeout; kill tree |
-| PDF -> Word/Excel/PPT | LibreOffice Draw import (weak) vs own extractor (pdfium text + layout -> python-docx/openpyxl/python-pptx) | MPL / MIT / BSD | SPIKE S2 benchmarks on 5 real PDFs; ship "good enough" text+tables+images honestly labelled, not "perfect layout" |
+| PDF -> Word/Excel/PPT | DECIDED by S2: own pdfplumber extractor -> python-docx/openpyxl/python-pptx (real paragraphs + real tables, recall 1.00 on 5 owner PDFs); LibreOffice PDF import only as optional "keep layout" mode (no real tables, 75-442 text frames per file) | MIT / MPL | images still to add; reading order and table cells to verify visually in O6 |
 | Read/write docx/xlsx/pptx directly | python-docx (MIT), openpyxl (MIT), python-pptx (MIT), lxml | MIT | verify versions at install (S5) |
-| OCR | Tesseract + OCRmyPDF (MPL-2.0) as OPTIONAL external binaries, feature-detected like AVIF | Apache-2.0 / MPL | needs Ghostscript for OCRmyPDF: spike whether `--output-type pdf` with pdfium rasterising avoids it |
+| OCR | Tesseract + OCRmyPDF (MPL-2.0) as OPTIONAL external binaries, feature-detected like AVIF | Apache-2.0 / MPL | S4 verified: OCRmyPDF 17.13 works WITHOUT Ghostscript with `--output-type pdf`; only PDF/A needs gs. Scan quality drives accuracy (mean conf 52.9 on a phone scan) -> deskew/contrast options + quality warning |
 | Office <-> text/markdown/HTML | own thin code on python-docx + `markdown-it-py` (MIT) | MIT | no pandoc (GPL) |
 | Compare | `difflib` + pdfium text per page | stdlib | side-by-side highlight |
 Rejected: pdf2docx/PyMuPDF (AGPL), Aspose/Spire (proprietary), OnlyOffice (AGPL), pandoc (GPL as bundled), Word COM automation (Windows+Office only, not portable).
