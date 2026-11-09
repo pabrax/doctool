@@ -147,6 +147,15 @@ def test_animated_gif_rejected(client):
     assert r.json()["detail"]["state"] == "unsupported"
 
 
+def test_multi_frame_mpo_rejected_not_silently_truncated(client):
+    # v0.2 policy: a multi-picture JPEG (MPO) is refused with a clear state, never cut to frame 1.
+    a, b = Image.new("RGB", (40, 30), "red"), Image.new("RGB", (40, 30), "blue")
+    buf = io.BytesIO()
+    a.save(buf, "MPO", save_all=True, append_images=[b])
+    r = clean(client, [("burst.jpg", buf.getvalue(), "image/jpeg")], expect=400)
+    assert r.json()["detail"]["state"] == "unsupported"
+
+
 def test_corrupt_rejected_at_upload(client):
     t = client.post("/api/v1/tasks", json={"tool": "imageclean", "params": {}})
     r = client.post(
