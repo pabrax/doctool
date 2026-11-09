@@ -19,3 +19,4 @@ web/tsconfig.tsbuildinfo
 qa/fixtures-office/
 qa/dl-office/
 qa/office-run-*.json
+qa/dl3/
