@@ -351,7 +351,7 @@ const es: Dict = {
   },
   home: {
     title: "¿Qué hacemos con tus archivos?",
-    subtitle: "Elige una herramienta o suelta un archivo en tu biblioteca. Todo se queda en este equipo.",
+    subtitle: "Elige una herramienta o suelta un archivo en tu biblioteca. Tus archivos solo se usan para procesarlos y se guardan en tu biblioteca.",
     tools: "Herramientas",
     showDetails: "Mostrar descripciones",
   },

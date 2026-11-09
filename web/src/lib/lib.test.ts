@@ -86,6 +86,13 @@ describe("errorText", () => {
     expect(es.home.title).toBe("¿Qué hacemos con tus archivos?");
   });
 
+  it("home subtitle does not promise a place where files are processed", () => {
+    expect(en.home.subtitle).not.toMatch(/this computer/i);
+    expect(es.home.subtitle).not.toMatch(/este equipo/i);
+    expect(en.home.subtitle).toMatch(/library/i);
+    expect(es.home.subtitle).toMatch(/biblioteca/i);
+  });
+
   it("neutral quality label and image values exist in both languages", () => {
     expect(en.params.quality).toBe("Quality");
     expect(es.params.quality).toBe("Calidad");

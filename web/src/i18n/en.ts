@@ -349,7 +349,7 @@ const en = {
   },
   home: {
     title: "What shall we do with your files?",
-    subtitle: "Pick a tool, or drop a file into your library. Everything stays on this computer.",
+    subtitle: "Pick a tool, or drop a file into your library. Your files are only used to process them and are kept in your library.",
     tools: "Tools",
     showDetails: "Show descriptions",
   },
